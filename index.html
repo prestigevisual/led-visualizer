@@ -216,6 +216,13 @@
         import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
         
         // ===================== CONFIG =====================
+        const IMAGE_PATHS = {
+            sports: 'images/sports.jpg',
+            worship: 'images/worship.jpg',
+            corporate: 'images/corporate.jpg',
+            concert: 'images/concert.jpg'
+        };
+        
         const GENRES = {
             worship: { 
                 description: 'Churches & Houses of Worship',
@@ -280,14 +287,29 @@
             });
             renderer.setSize(512, 512);
             renderer.outputColorSpace = THREE.SRGBColorSpace;
-            console.log('WebGL Renderer created');
         } catch (e) {
             console.error('Failed to create WebGL renderer:', e);
         }
         
-        // ===================== DRAW CONTENT TO CANVAS =====================
-        function drawGenreContent(ctx, width, height, genre) {
+        // ===================== IMAGE LOADING =====================
+        function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error('Failed to load: ' + src));
+                img.src = src;
+            });
+        }
+        
+        // ===================== DRAW CONTENT - FOR USDZ (MIRRORED) =====================
+        function drawGenreContentForUSDZ(ctx, width, height, genre) {
             const g = GENRES[genre];
+            
+            // Save context and flip horizontally to counter USDZ mirroring
+            ctx.save();
+            ctx.scale(-1, 1);
+            ctx.translate(-width, 0);
             
             // Create gradient background
             const gradient = ctx.createLinearGradient(0, 0, width, height);
@@ -299,7 +321,7 @@
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, width, height);
             
-            // Add some visual elements
+            // Add visual elements
             ctx.fillStyle = 'rgba(255,255,255,0.1)';
             for (let i = 0; i < 20; i++) {
                 const x = (i * 123.456) % width;
@@ -317,10 +339,60 @@
             ctx.textBaseline = 'middle';
             ctx.fillText(g.text, width / 2, height / 2);
             
-            // Add subtitle
+            // Subtitle
             ctx.fillStyle = 'rgba(255,255,255,0.6)';
             ctx.font = `${height * 0.05}px Arial`;
             ctx.fillText('LED VIDEO WALL PREVIEW', width / 2, height / 2 + height * 0.15);
+            
+            ctx.restore();
+        }
+        
+        // ===================== DRAW CONTENT - FOR PREVIEW (NORMAL) =====================
+        function drawGenreContentNormal(ctx, width, height, genre) {
+            const g = GENRES[genre];
+            
+            // Create gradient background
+            const gradient = ctx.createLinearGradient(0, 0, width, height);
+            gradient.addColorStop(0, g.colors[0]);
+            gradient.addColorStop(0.33, g.colors[1]);
+            gradient.addColorStop(0.66, g.colors[2]);
+            gradient.addColorStop(1, g.colors[3]);
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Add visual elements
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            for (let i = 0; i < 20; i++) {
+                const x = (i * 123.456) % width;
+                const y = (i * 78.901) % height;
+                const r = ((i * 45.678) % 80) + 20;
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Draw text
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.font = `bold ${height * 0.15}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(g.text, width / 2, height / 2);
+            
+            // Subtitle
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.font = `${height * 0.05}px Arial`;
+            ctx.fillText('LED VIDEO WALL PREVIEW', width / 2, height / 2 + height * 0.15);
+        }
+        
+        // ===================== DRAW IMAGE TO CANVAS FOR USDZ =====================
+        function drawImageForUSDZ(ctx, img, width, height) {
+            // Flip horizontally to counter USDZ mirroring
+            ctx.save();
+            ctx.scale(-1, 1);
+            ctx.translate(-width, 0);
+            ctx.drawImage(img, 0, 0, width, height);
+            ctx.restore();
         }
         
         // ===================== HELPERS =====================
@@ -408,8 +480,8 @@
             previewCanvas.style.width = w + 'px';
             previewCanvas.style.height = h + 'px';
             
-            // Draw preview content
-            drawGenreContent(previewCtx, previewCanvas.width, previewCanvas.height, state.genre);
+            // Draw preview content (normal orientation)
+            drawGenreContentNormal(previewCtx, previewCanvas.width, previewCanvas.height, state.genre);
         }
         
         function updatePitchResolutions() {
@@ -450,38 +522,52 @@
             const btn = document.getElementById('generateBtn');
             btn.disabled = true;
             btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" stroke-dasharray="30 60"/></svg> Generating...';
-            showStatus('Creating texture...', 'info');
+            showStatus('Loading image...', 'info');
             
             try {
-                // Create texture canvas - use power of 2 dimensions
+                // Try to load the actual image first
+                let useRealImage = false;
+                let img;
+                try {
+                    img = await loadImage(IMAGE_PATHS[state.genre]);
+                    useRealImage = true;
+                    console.log('Real image loaded:', img.width, 'x', img.height);
+                } catch (e) {
+                    console.log('Could not load real image, using generated content');
+                }
+                
+                showStatus('Creating texture...', 'info');
+                
+                // Create texture canvas - power of 2
                 const texWidth = 1024;
                 const texHeight = 512;
                 textureCanvas.width = texWidth;
                 textureCanvas.height = texHeight;
                 
-                // Draw content
-                drawGenreContent(textureCtx, texWidth, texHeight, state.genre);
-                console.log('Texture canvas drawn');
+                // Draw content (mirrored for USDZ)
+                if (useRealImage) {
+                    drawImageForUSDZ(textureCtx, img, texWidth, texHeight);
+                } else {
+                    drawGenreContentForUSDZ(textureCtx, texWidth, texHeight, state.genre);
+                }
                 
                 showStatus('Building 3D model...', 'info');
                 
                 // Create scene
                 const scene = new THREE.Scene();
-                scene.background = new THREE.Color(0x000000);
                 
                 const widthM = state.width * FT_TO_M;
                 const heightM = state.height * FT_TO_M;
                 const depth = 0.08;
+                const frameThickness = 0.03; // Bezel thickness
                 
-                // Create CanvasTexture
+                // Create texture - flipY = true to fix upside down
                 const texture = new THREE.CanvasTexture(textureCanvas);
-                texture.flipY = false;
+                texture.flipY = true;
                 texture.colorSpace = THREE.SRGBColorSpace;
                 texture.needsUpdate = true;
                 
-                console.log('Texture created from canvas');
-                
-                // Screen mesh - MeshStandardMaterial required for USDZ
+                // Screen mesh - SAME SIZE as visible area (no gap)
                 const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
                 const screenMat = new THREE.MeshStandardMaterial({ 
                     map: texture,
@@ -490,14 +576,14 @@
                     side: THREE.DoubleSide
                 });
                 const screen = new THREE.Mesh(screenGeo, screenMat);
-                screen.position.z = depth / 2 + 0.003;
+                screen.position.z = depth / 2 + 0.001;
                 
-                // Frame mesh
-                const frameGeo = new THREE.BoxGeometry(widthM + 0.06, heightM + 0.06, depth);
+                // Frame - slightly larger than screen
+                const frameGeo = new THREE.BoxGeometry(widthM + frameThickness * 2, heightM + frameThickness * 2, depth);
                 const frameMat = new THREE.MeshStandardMaterial({ 
-                    color: 0x1a1a1a, 
+                    color: 0x111111, 
                     roughness: 0.8, 
-                    metalness: 0.2 
+                    metalness: 0.3 
                 });
                 const frame = new THREE.Mesh(frameGeo, frameMat);
                 
@@ -508,33 +594,24 @@
                 scene.add(group);
                 
                 // Lighting
-                const ambientLight = new THREE.AmbientLight(0xffffff, 2);
-                scene.add(ambientLight);
-                
+                scene.add(new THREE.AmbientLight(0xffffff, 2));
                 const dirLight = new THREE.DirectionalLight(0xffffff, 1);
                 dirLight.position.set(0, 0, 5);
                 scene.add(dirLight);
                 
-                // Camera for rendering
+                // Camera
                 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
                 camera.position.set(0, 0, Math.max(widthM, heightM) * 2);
                 camera.lookAt(0, 0, 0);
                 
-                // IMPORTANT: Render the scene to initialize textures
-                showStatus('Rendering scene...', 'info');
+                // Render to initialize textures
                 renderer.render(scene, camera);
-                console.log('Scene rendered to initialize textures');
-                
-                // Force texture upload to GPU
                 renderer.initTexture(texture);
-                console.log('Texture initialized on GPU');
-                
-                // Render again
                 renderer.render(scene, camera);
                 
                 showStatus('Exporting to USDZ...', 'info');
                 
-                // Export to USDZ
+                // Export
                 const exporter = new USDZExporter();
                 const arrayBuffer = await exporter.parse(scene);
                 
