@@ -84,12 +84,7 @@
         
         .disclaimer { font-size: 10px; color: rgba(255,255,255,0.4); text-align: center; line-height: 1.5; padding: 15px; }
         
-        #hiddenCanvas { display: none; }
-        
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -117,8 +112,8 @@
             View in Your Space
         </button>
         
-        <a id="arLink" rel="ar" href="#" download="led-wall.usdz" style="display:none;">
-            <img id="arImage">
+        <a id="arLink" rel="ar" href="#" style="display:none;">
+            <img id="arImage" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=">
         </a>
         
         <div class="ar-note">Opens iOS AR viewer with real-world scale</div>
@@ -210,21 +205,10 @@
             Pricing is an estimate based on selected dimensions. Actual panel configurations and final pricing confirmed during consultation.
         </div>
     </div>
-    
-    <canvas id="hiddenCanvas"></canvas>
 
     <script type="module">
         import * as THREE from 'three';
         import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
-        
-        function showStatus(message, type) {
-            const status = document.getElementById('statusMessage');
-            status.textContent = message;
-            status.className = `status-message show ${type}`;
-            if (type === 'success') {
-                setTimeout(() => { status.className = 'status-message'; }, 3000);
-            }
-        }
         
         // ===================== CONFIG =====================
         const IMAGE_PATHS = {
@@ -235,15 +219,14 @@
         };
         
         const GENRES = {
-            worship: { label: 'Worship', description: 'Churches & Houses of Worship' },
-            corporate: { label: 'Corporate', description: 'Lobbies & Boardrooms' },
-            sports: { label: 'Sports', description: 'Sports Bars & Watch Parties' },
-            concert: { label: 'Concert', description: 'Live Events & Nightclubs' }
+            worship: { description: 'Churches & Houses of Worship' },
+            corporate: { description: 'Lobbies & Boardrooms' },
+            sports: { description: 'Sports Bars & Watch Parties' },
+            concert: { description: 'Live Events & Nightclubs' }
         };
         
         const WIDTH_INCREMENTS = [3.9, 5.9, 7.9, 9.8, 11.8, 13.8, 15.7, 17.7, 19.7, 21.7, 23.6, 25.6, 27.6, 29.5, 31.5, 33.5, 35.4, 37.4, 39.4];
         const HEIGHT_INCREMENTS = [2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.9, 10.0, 11.1, 12.2, 13.3, 14.4, 15.5, 16.6, 17.7, 18.9, 20.0, 21.1];
-        
         const PITCH_OPTIONS = [0.9, 1.25, 1.9, 2.6];
         
         const PRICING = {
@@ -265,42 +248,63 @@
             genre: 'sports'
         };
         
-        // ===================== IMAGE LOADING =====================
-        const loadedImages = {};
+        // ===================== ELEMENTS =====================
         const previewImage = document.getElementById('previewImage');
         const previewContainer = document.getElementById('previewContainer');
-        const hiddenCanvas = document.getElementById('hiddenCanvas');
-        const hiddenCtx = hiddenCanvas.getContext('2d');
         
-        function loadImage(genre) {
-            return new Promise((resolve) => {
-                if (loadedImages[genre] && loadedImages[genre].complete) {
-                    resolve(loadedImages[genre]);
+        // ===================== TEXTURE LOADER =====================
+        const textureLoader = new THREE.TextureLoader();
+        const loadedTextures = {};
+        
+        // Preload all textures using THREE.TextureLoader
+        function preloadTextures() {
+            Object.keys(IMAGE_PATHS).forEach(genre => {
+                textureLoader.load(
+                    IMAGE_PATHS[genre],
+                    (texture) => {
+                        texture.colorSpace = THREE.SRGBColorSpace;
+                        texture.flipY = false;
+                        loadedTextures[genre] = texture;
+                        console.log('Preloaded texture:', genre);
+                    },
+                    undefined,
+                    (err) => console.error('Failed to load texture:', genre, err)
+                );
+            });
+        }
+        preloadTextures();
+        
+        // Load texture with promise
+        function loadTexture(genre) {
+            return new Promise((resolve, reject) => {
+                if (loadedTextures[genre]) {
+                    resolve(loadedTextures[genre].clone());
                     return;
                 }
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => {
-                    loadedImages[genre] = img;
-                    resolve(img);
-                };
-                img.onerror = () => {
-                    console.error('Failed to load image:', genre);
-                    resolve(null);
-                };
-                img.src = IMAGE_PATHS[genre];
+                textureLoader.load(
+                    IMAGE_PATHS[genre],
+                    (texture) => {
+                        texture.colorSpace = THREE.SRGBColorSpace;
+                        texture.flipY = false;
+                        loadedTextures[genre] = texture;
+                        resolve(texture.clone());
+                    },
+                    undefined,
+                    (err) => reject(err)
+                );
             });
         }
         
-        // Preload all images immediately
-        async function preloadAllImages() {
-            const promises = Object.keys(IMAGE_PATHS).map(genre => loadImage(genre));
-            await Promise.all(promises);
-            console.log('All images preloaded');
-        }
-        preloadAllImages();
-        
         // ===================== HELPERS =====================
+        function showStatus(message, type) {
+            const status = document.getElementById('statusMessage');
+            status.textContent = message;
+            status.className = `status-message show ${type}`;
+            if (type === 'success') {
+                setTimeout(() => { status.className = 'status-message'; }, 3000);
+            }
+        }
+        
         function snapToIncrement(value, increments) {
             return increments.reduce((prev, curr) => 
                 Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev
@@ -352,7 +356,6 @@
             return { w: Math.round(wMM / pitchMM), h: Math.round(hMM / pitchMM) };
         }
         
-        // Calculate equivalent resolution label (2K, 3K, 4K, etc.)
         function getResolutionLabel(horizontalPixels) {
             if (horizontalPixels >= 7680) return '8K';
             if (horizontalPixels >= 6144) return '6K+';
@@ -373,25 +376,17 @@
             const aspect = state.width / state.height;
             let w = maxWidth;
             let h = Math.round(w / aspect);
-            
-            if (h > 220) {
-                h = 220;
-                w = Math.round(h * aspect);
-            }
-            
+            if (h > 220) { h = 220; w = Math.round(h * aspect); }
             previewContainer.style.width = w + 'px';
             previewContainer.style.height = h + 'px';
         }
         
         function updatePitchResolutions() {
-            // Update resolution label in each pitch button based on current dimensions
             PITCH_OPTIONS.forEach(pitch => {
                 const res = calcResolutionForPitch(state.width, state.height, pitch);
                 const label = getResolutionLabel(res.w);
                 const el = document.getElementById(`res-${pitch}`);
-                if (el) {
-                    el.textContent = label;
-                }
+                if (el) el.textContent = label;
             });
         }
         
@@ -415,70 +410,9 @@
             document.getElementById('genreDescription').textContent = GENRES[state.genre].description;
             document.getElementById('arDimensions').textContent = state.width + ' ft × ' + state.height + ' ft';
             
-            // Update all pitch button resolution labels
             updatePitchResolutions();
-            
-            // Update preview image and size
             previewImage.src = IMAGE_PATHS[state.genre];
             updatePreviewSize();
-        }
-        
-        // ===================== TEXTURE GENERATION =====================
-        async function generateTexture() {
-            // Wait for image to load
-            const img = await loadImage(state.genre);
-            
-            const textureSize = 2048;
-            const aspectRatio = state.width / state.height;
-            const texW = textureSize;
-            const texH = Math.round(textureSize / aspectRatio);
-            
-            hiddenCanvas.width = texW;
-            hiddenCanvas.height = texH;
-            
-            // Fill black background
-            hiddenCtx.fillStyle = '#000';
-            hiddenCtx.fillRect(0, 0, texW, texH);
-            
-            if (img && img.complete && img.naturalWidth > 0) {
-                // Center crop the image to match wall aspect ratio
-                const imgAspect = img.width / img.height;
-                const targetAspect = aspectRatio;
-                
-                let sx, sy, sw, sh;
-                
-                if (imgAspect > targetAspect) {
-                    // Image is wider - crop sides
-                    sh = img.height;
-                    sw = img.height * targetAspect;
-                    sx = (img.width - sw) / 2;
-                    sy = 0;
-                } else {
-                    // Image is taller - crop top/bottom
-                    sw = img.width;
-                    sh = img.width / targetAspect;
-                    sx = 0;
-                    sy = (img.height - sh) / 2;
-                }
-                
-                hiddenCtx.drawImage(img, sx, sy, sw, sh, 0, 0, texW, texH);
-                console.log('Drew image to texture canvas:', texW, 'x', texH);
-            } else {
-                console.warn('Image not ready, using fallback color');
-                // Fallback: draw a gradient if image fails
-                const gradient = hiddenCtx.createLinearGradient(0, 0, texW, texH);
-                gradient.addColorStop(0, '#1a5a1a');
-                gradient.addColorStop(1, '#0a3a0a');
-                hiddenCtx.fillStyle = gradient;
-                hiddenCtx.fillRect(0, 0, texW, texH);
-                
-                hiddenCtx.fillStyle = '#fff';
-                hiddenCtx.font = 'bold 120px Arial';
-                hiddenCtx.textAlign = 'center';
-                hiddenCtx.fillText('PRESTIGE', texW/2, texH/2);
-            }
-            
-            return hiddenCanvas;
         }
         
         // ===================== AR GENERATION =====================
@@ -486,34 +420,21 @@
             const btn = document.getElementById('generateBtn');
             btn.disabled = true;
             btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" stroke-dasharray="30 60"/></svg> Generating...';
-            showStatus('Loading image...', 'info');
+            showStatus('Loading texture...', 'info');
             
             try {
-                // Ensure image is loaded first
-                await loadImage(state.genre);
+                // Load texture using THREE.TextureLoader - this is the key!
+                const texture = await loadTexture(state.genre);
                 
                 showStatus('Creating 3D model...', 'info');
                 
-                // Generate texture
-                const textureCanvas = await generateTexture();
-                
-                // Create data URL from canvas for debugging
-                const dataUrl = textureCanvas.toDataURL('image/jpeg', 0.9);
-                console.log('Texture generated, size:', textureCanvas.width, 'x', textureCanvas.height);
-                
-                // Create scene
                 const scene = new THREE.Scene();
                 
                 const widthM = state.width * FT_TO_M;
                 const heightM = state.height * FT_TO_M;
-                const depth = 0.08; // ~3 inch depth
+                const depth = 0.08;
                 
-                // Create texture from canvas
-                const texture = new THREE.CanvasTexture(textureCanvas);
-                texture.colorSpace = THREE.SRGBColorSpace;
-                texture.needsUpdate = true;
-                
-                // Screen - MeshBasicMaterial for reliable USDZ export
+                // Screen with loaded texture
                 const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
                 const screenMat = new THREE.MeshBasicMaterial({ 
                     map: texture,
@@ -522,7 +443,7 @@
                 const screen = new THREE.Mesh(screenGeo, screenMat);
                 screen.position.z = depth / 2 + 0.003;
                 
-                // Frame (black cabinet)
+                // Frame
                 const frameGeo = new THREE.BoxGeometry(widthM + 0.05, heightM + 0.05, depth);
                 const frameMat = new THREE.MeshStandardMaterial({ 
                     color: 0x111111, 
@@ -531,16 +452,15 @@
                 });
                 const frame = new THREE.Mesh(frameGeo, frameMat);
                 
-                // Group
                 const group = new THREE.Group();
                 group.add(frame);
                 group.add(screen);
                 scene.add(group);
                 
-                // Lights
                 scene.add(new THREE.AmbientLight(0xffffff, 2));
                 
-                // Export
+                showStatus('Exporting to USDZ...', 'info');
+                
                 const exporter = new USDZExporter();
                 const arrayBuffer = await exporter.parse(scene);
                 
@@ -549,9 +469,6 @@
                 
                 const arLink = document.getElementById('arLink');
                 arLink.href = url;
-                
-                const arImg = document.getElementById('arImage');
-                arImg.src = dataUrl; // Use the actual texture as the AR link image
                 
                 showStatus('Opening AR viewer...', 'success');
                 
@@ -585,16 +502,10 @@
                     heightSlider.disabled = false;
                 } else {
                     heightSlider.disabled = true;
-                    const widthIdx = parseInt(widthSlider.value);
-                    state.width = WIDTH_INCREMENTS[widthIdx];
-                    
-                    if (state.shape === 'rectangle') {
-                        state.height = findBestHeightForRatio(state.width, 16/9);
-                    } else if (state.shape === 'square') {
-                        state.height = snapToIncrement(state.width, HEIGHT_INCREMENTS);
-                    } else if (state.shape === 'ultrawide') {
-                        state.height = findBestHeightForRatio(state.width, 21/9);
-                    }
+                    state.width = WIDTH_INCREMENTS[parseInt(widthSlider.value)];
+                    if (state.shape === 'rectangle') state.height = findBestHeightForRatio(state.width, 16/9);
+                    else if (state.shape === 'square') state.height = snapToIncrement(state.width, HEIGHT_INCREMENTS);
+                    else if (state.shape === 'ultrawide') state.height = findBestHeightForRatio(state.width, 21/9);
                     heightSlider.value = getIncrementIndex(state.height, HEIGHT_INCREMENTS);
                 }
                 updateUI();
@@ -620,18 +531,12 @@
         });
         
         document.getElementById('widthSlider').addEventListener('input', (e) => {
-            const idx = parseInt(e.target.value);
-            state.width = WIDTH_INCREMENTS[idx];
-            
+            state.width = WIDTH_INCREMENTS[parseInt(e.target.value)];
             if (state.shape !== 'custom') {
                 const heightSlider = document.getElementById('heightSlider');
-                if (state.shape === 'rectangle') {
-                    state.height = findBestHeightForRatio(state.width, 16/9);
-                } else if (state.shape === 'square') {
-                    state.height = snapToIncrement(state.width, HEIGHT_INCREMENTS);
-                } else if (state.shape === 'ultrawide') {
-                    state.height = findBestHeightForRatio(state.width, 21/9);
-                }
+                if (state.shape === 'rectangle') state.height = findBestHeightForRatio(state.width, 16/9);
+                else if (state.shape === 'square') state.height = snapToIncrement(state.width, HEIGHT_INCREMENTS);
+                else if (state.shape === 'ultrawide') state.height = findBestHeightForRatio(state.width, 21/9);
                 heightSlider.value = getIncrementIndex(state.height, HEIGHT_INCREMENTS);
             }
             updateUI();
