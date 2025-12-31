@@ -17,8 +17,10 @@
         .logo-subtitle { font-size: 12px; color: rgba(0,200,255,0.7); text-transform: uppercase; letter-spacing: 6px; margin-top: 5px; }
         
         .preview-section { background: rgba(0,0,0,0.4); border-radius: 20px; padding: 20px; margin-bottom: 20px; border: 1px solid rgba(0,200,255,0.2); }
-        .preview-container { position: relative; width: 100%; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 15px; }
-        #previewImage { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .preview-wrapper { display: flex; justify-content: center; align-items: center; margin-bottom: 15px; }
+        .preview-frame { background: #0a0a0a; padding: 8px; border-radius: 4px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        .preview-container { position: relative; background: #000; overflow: hidden; }
+        #previewCanvas { display: block; }
         .preview-label { text-align: center; font-size: 12px; color: rgba(255,255,255,0.5); }
         
         .ar-button { display: flex; width: 100%; padding: 18px; font-size: 18px; font-weight: 700; color: #000; background: linear-gradient(135deg, #00ff88, #00d4ff); border: none; border-radius: 50px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; align-items: center; justify-content: center; gap: 10px; text-decoration: none; }
@@ -74,10 +76,14 @@
         </div>
         
         <div class="preview-section">
-            <div class="preview-container" id="previewContainer">
-                <img id="previewImage" src="images/sports.jpg" alt="Preview">
+            <div class="preview-wrapper">
+                <div class="preview-frame">
+                    <div class="preview-container">
+                        <canvas id="previewCanvas"></canvas>
+                    </div>
+                </div>
             </div>
-            <div class="preview-label">HD Preview - Cropped to wall dimensions</div>
+            <div class="preview-label">Preview with LED pixel effect · <span id="pitchPreview">P2.5</span></div>
         </div>
         
         <a id="arLink" rel="ar" href="#" class="ar-button">
@@ -188,15 +194,17 @@
         
         var MARGIN_DIVISOR = 0.218;
         var FT_TO_M = 0.3048;
+        var FRAME_DEPTH_INCHES = 2.5;
+        var FRAME_DEPTH_M = FRAME_DEPTH_INCHES * 0.0254;
         
         var state = { shape: 'rectangle', width: 13.8, height: 7.7, pixelPitch: 2.5, genre: 'sports' };
         var currentUsdzUrl = null;
         var loadedImages = {};
         
+        var previewCanvas = document.getElementById('previewCanvas');
+        var previewCtx = previewCanvas.getContext('2d');
         var textureCanvas = document.getElementById('textureCanvas');
         var textureCtx = textureCanvas.getContext('2d');
-        var previewImg = document.getElementById('previewImage');
-        var previewContainer = document.getElementById('previewContainer');
         
         function loadImage(genre) {
             return new Promise(function(resolve) {
@@ -216,9 +224,7 @@
             });
         }
         
-        Object.keys(IMAGE_PATHS).forEach(function(genre) {
-            loadImage(genre);
-        });
+        Object.keys(IMAGE_PATHS).forEach(loadImage);
         
         function snapToIncrement(value, increments) {
             return increments.reduce(function(prev, curr) {
@@ -271,25 +277,18 @@
             return { w: Math.round(wMM / pitch), h: Math.round(hMM / pitch) };
         }
         
-        // Generate texture cropped to exact wall aspect ratio
-        function generateTexture(img, width, height) {
-            var aspectRatio = width / height;
-            var texW = 2048;
-            var texH = Math.round(texW / aspectRatio);
-            
-            textureCanvas.width = texW;
-            textureCanvas.height = texH;
-            var ctx = textureCtx;
-            
+        // Draw image with LED pixel grid overlay
+        function drawWithPixelGrid(ctx, img, w, h, widthFt, heightFt, pitch) {
+            // Clear
             ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, texW, texH);
+            ctx.fillRect(0, 0, w, h);
             
             if (img) {
+                // Calculate crop to match aspect ratio (center crop)
+                var targetAspect = widthFt / heightFt;
                 var imgAspect = img.width / img.height;
-                var targetAspect = texW / texH;
                 var sx, sy, sw, sh;
                 
-                // Crop image to match wall aspect ratio (cover mode)
                 if (imgAspect > targetAspect) {
                     // Image is wider - crop sides
                     sh = img.height;
@@ -304,30 +303,68 @@
                     sy = (img.height - sh) / 2;
                 }
                 
-                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, texW, texH);
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
             }
             
-            return textureCanvas.toDataURL('image/jpeg', 0.95);
+            // Calculate LED pixel grid
+            var screenWidthMM = widthFt * 304.8;
+            var pixelsAcross = screenWidthMM / pitch;
+            var pixelSizePx = w / pixelsAcross;
+            
+            // Only draw grid if pixels are visible (> 1.5px on screen)
+            if (pixelSizePx > 1.5) {
+                // Gap between pixels (proportional to pitch)
+                var gapRatio = 0.12; // 12% gap
+                var gapSize = pixelSizePx * gapRatio;
+                
+                ctx.fillStyle = 'rgba(0,0,0,0.9)';
+                
+                // Vertical gaps
+                for (var x = pixelSizePx - gapSize/2; x < w; x += pixelSizePx) {
+                    ctx.fillRect(x, 0, gapSize, h);
+                }
+                
+                // Horizontal gaps
+                for (var y = pixelSizePx - gapSize/2; y < h; y += pixelSizePx) {
+                    ctx.fillRect(0, y, w, gapSize);
+                }
+            }
         }
         
-        // Simple flat screen - no frame, no reflections
-        function generateUSDA(widthM, heightM, depthM) {
+        // Generate texture for AR with pixel grid
+        function generateTexture(img, widthFt, heightFt, pitch) {
+            var aspectRatio = widthFt / heightFt;
+            var texW = 2048;
+            var texH = Math.round(texW / aspectRatio);
+            
+            textureCanvas.width = texW;
+            textureCanvas.height = texH;
+            
+            drawWithPixelGrid(textureCtx, img, texW, texH, widthFt, heightFt, pitch);
+            
+            return textureCanvas.toDataURL('image/jpeg', 0.92);
+        }
+        
+        // Generate USDA with frame depth
+        function generateUSDA(widthM, heightM) {
             var hw = widthM / 2;
             var hh = heightM / 2;
-            var d = depthM;
+            var d = FRAME_DEPTH_M;
             
-            return '#usda 1.0\n(\n    defaultPrim = "LEDScreen"\n    metersPerUnit = 1\n    upAxis = "Y"\n)\n\ndef Xform "LEDScreen" (\n    kind = "component"\n)\n{\n    def Mesh "Screen"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw).toFixed(4) + ', ' + (-hh).toFixed(4) + ', 0),\n            (' + hw.toFixed(4) + ', ' + (-hh).toFixed(4) + ', 0),\n            (' + (-hw).toFixed(4) + ', ' + hh.toFixed(4) + ', 0),\n            (' + hw.toFixed(4) + ', ' + hh.toFixed(4) + ', 0)\n        ]\n        texCoord2f[] primvars:st = [(0, 0), (1, 0), (0, 1), (1, 1)] (\n            interpolation = "vertex"\n        )\n        int[] primvars:st:indices = [0, 1, 3, 2]\n        rel material:binding = </LEDScreen/Materials/ScreenMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    def Scope "Materials"\n    {\n        def Material "ScreenMaterial"\n        {\n            token outputs:surface.connect = </LEDScreen/Materials/ScreenMaterial/PBRShader.outputs:surface>\n            \n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0, 0, 0)\n                color3f inputs:emissiveColor.connect = </LEDScreen/Materials/ScreenMaterial/Texture.outputs:rgb>\n                float inputs:roughness = 1.0\n                float inputs:metallic = 0.0\n                float inputs:opacity = 1.0\n                token outputs:surface\n            }\n            \n            def Shader "Texture"\n            {\n                uniform token info:id = "UsdUVTexture"\n                asset inputs:file = @texture.jpg@\n                float2 inputs:st.connect = </LEDScreen/Materials/ScreenMaterial/TexCoordReader.outputs:result>\n                token inputs:wrapS = "clamp"\n                token inputs:wrapT = "clamp"\n                float3 outputs:rgb\n            }\n            \n            def Shader "TexCoordReader"\n            {\n                uniform token info:id = "UsdPrimvarReader_float2"\n                string inputs:varname = "st"\n                float2 outputs:result\n            }\n        }\n    }\n}\n';
+            // Frame extends around edges
+            var frameW = 0.015; // ~0.6" frame width
+            
+            return '#usda 1.0\n(\n    defaultPrim = "LEDWall"\n    metersPerUnit = 1\n    upAxis = "Y"\n)\n\ndef Xform "LEDWall" (\n    kind = "component"\n)\n{\n    # Back panel\n    def Mesh "BackPanel"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw-frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (hw+frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (-hw-frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (hw+frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', ' + (-d).toFixed(4) + ')\n        ]\n        rel material:binding = </LEDWall/Materials/FrameMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    # Top edge\n    def Mesh "TopEdge"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw-frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', 0),\n            (' + (hw+frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', 0),\n            (' + (-hw-frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (hw+frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', ' + (-d).toFixed(4) + ')\n        ]\n        rel material:binding = </LEDWall/Materials/FrameMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    # Bottom edge\n    def Mesh "BottomEdge"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw-frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (hw+frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (-hw-frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', 0),\n            (' + (hw+frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', 0)\n        ]\n        rel material:binding = </LEDWall/Materials/FrameMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    # Left edge\n    def Mesh "LeftEdge"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw-frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (-hw-frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', 0),\n            (' + (-hw-frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (-hw-frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', 0)\n        ]\n        rel material:binding = </LEDWall/Materials/FrameMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    # Right edge\n    def Mesh "RightEdge"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (hw+frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', 0),\n            (' + (hw+frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (hw+frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', 0),\n            (' + (hw+frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', ' + (-d).toFixed(4) + ')\n        ]\n        rel material:binding = </LEDWall/Materials/FrameMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    # Screen (flush with front)\n    def Mesh "Screen"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw).toFixed(4) + ', ' + (-hh).toFixed(4) + ', 0.001),\n            (' + hw.toFixed(4) + ', ' + (-hh).toFixed(4) + ', 0.001),\n            (' + (-hw).toFixed(4) + ', ' + hh.toFixed(4) + ', 0.001),\n            (' + hw.toFixed(4) + ', ' + hh.toFixed(4) + ', 0.001)\n        ]\n        texCoord2f[] primvars:st = [(0, 0), (1, 0), (0, 1), (1, 1)] (\n            interpolation = "vertex"\n        )\n        int[] primvars:st:indices = [0, 1, 3, 2]\n        rel material:binding = </LEDWall/Materials/ScreenMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    def Scope "Materials"\n    {\n        def Material "FrameMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/FrameMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0.02, 0.02, 0.02)\n                float inputs:roughness = 0.7\n                float inputs:metallic = 0.3\n                token outputs:surface\n            }\n        }\n        \n        def Material "ScreenMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/ScreenMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0, 0, 0)\n                color3f inputs:emissiveColor.connect = </LEDWall/Materials/ScreenMaterial/Texture.outputs:rgb>\n                float inputs:roughness = 1.0\n                float inputs:metallic = 0.0\n                token outputs:surface\n            }\n            def Shader "Texture"\n            {\n                uniform token info:id = "UsdUVTexture"\n                asset inputs:file = @texture.jpg@\n                float2 inputs:st.connect = </LEDWall/Materials/ScreenMaterial/TexCoordReader.outputs:result>\n                token inputs:wrapS = "clamp"\n                token inputs:wrapT = "clamp"\n                float3 outputs:rgb\n            }\n            def Shader "TexCoordReader"\n            {\n                uniform token info:id = "UsdPrimvarReader_float2"\n                string inputs:varname = "st"\n                float2 outputs:result\n            }\n        }\n    }\n}\n';
         }
         
         async function generateUSDZ() {
             var widthM = state.width * FT_TO_M;
             var heightM = state.height * FT_TO_M;
-            var depthM = 0.02;
             
             var img = await loadImage(state.genre);
             
-            var usdaContent = generateUSDA(widthM, heightM, depthM);
-            var textureDataUrl = generateTexture(img, state.width, state.height);
+            var usdaContent = generateUSDA(widthM, heightM);
+            var textureDataUrl = generateTexture(img, state.width, state.height, state.pixelPitch);
             var textureBase64 = textureDataUrl.split(',')[1];
             var textureBytes = Uint8Array.from(atob(textureBase64), function(c) { return c.charCodeAt(0); });
             
@@ -343,9 +380,24 @@
             return currentUsdzUrl + '#.usdz';
         }
         
-        function updatePreviewAspectRatio() {
+        function updatePreview() {
+            var maxWidth = 340;
             var aspectRatio = state.width / state.height;
-            previewContainer.style.aspectRatio = aspectRatio;
+            var w = maxWidth;
+            var h = Math.round(w / aspectRatio);
+            
+            if (h > 250) {
+                h = 250;
+                w = Math.round(h * aspectRatio);
+            }
+            
+            previewCanvas.width = w * 2;
+            previewCanvas.height = h * 2;
+            previewCanvas.style.width = w + 'px';
+            previewCanvas.style.height = h + 'px';
+            
+            var img = loadedImages[state.genre];
+            drawWithPixelGrid(previewCtx, img, w * 2, h * 2, state.width, state.height, state.pixelPitch);
         }
         
         async function updateUI() {
@@ -356,6 +408,7 @@
             var key = getPitchKey(state.pixelPitch);
             document.getElementById('priceDisplay').textContent = formatPrice(price);
             document.getElementById('pitchLabel').textContent = key + ' ' + PRICING[key].label;
+            document.getElementById('pitchPreview').textContent = key;
             document.getElementById('viewingDistance').textContent = PRICING[key].minViewingFt + '+ feet';
             
             var res = calcResolution(state.pixelPitch);
@@ -367,9 +420,9 @@
             document.getElementById('genreDescription').textContent = GENRES[state.genre].description;
             document.getElementById('arDimensions').textContent = state.width + ' ft × ' + state.height + ' ft';
             
-            // Update preview aspect ratio and image
-            updatePreviewAspectRatio();
-            previewImg.src = IMAGE_PATHS[state.genre];
+            // Wait for image then update preview
+            await loadImage(state.genre);
+            updatePreview();
             
             var arLink = document.getElementById('arLink');
             var arButton = document.getElementById('arButtonText');
