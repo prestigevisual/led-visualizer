@@ -484,9 +484,8 @@
                 textureCanvas.width = texWidth;
                 textureCanvas.height = texHeight;
                 
-                // Draw content - NO FLIP for real images
+                // Draw content
                 if (useRealImage) {
-                    // Draw image normally - no mirroring
                     textureCtx.drawImage(img, 0, 0, texWidth, texHeight);
                 } else {
                     drawFallbackContent(textureCtx, texWidth, texHeight, state.genre);
@@ -499,8 +498,7 @@
                 
                 const widthM = state.width * FT_TO_M;
                 const heightM = state.height * FT_TO_M;
-                const frameDepth = 0.025; // Thin sleek bezel - 2.5cm
-                const bezelWidth = 0.015; // Very thin bezel edge - 1.5cm
+                const frameDepth = 0.02; // Very thin - 2cm depth
                 
                 // Create texture
                 const texture = new THREE.CanvasTexture(textureCanvas);
@@ -508,8 +506,9 @@
                 texture.colorSpace = THREE.SRGBColorSpace;
                 texture.needsUpdate = true;
                 
-                // Screen - slightly larger than frame opening to ensure no gap
-                const screenGeo = new THREE.PlaneGeometry(widthM + 0.01, heightM + 0.01);
+                // Screen - EXACT same size as frame front face
+                // This ensures no bezel visible from front, only from sides
+                const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
                 const screenMat = new THREE.MeshStandardMaterial({ 
                     map: texture,
                     roughness: 0.2,
@@ -517,10 +516,11 @@
                     side: THREE.FrontSide
                 });
                 const screen = new THREE.Mesh(screenGeo, screenMat);
-                screen.position.z = frameDepth / 2 + 0.001;
+                screen.position.z = frameDepth / 2 + 0.001; // Just in front of frame
                 
-                // Frame - thin bezel
-                const frameGeo = new THREE.BoxGeometry(widthM + bezelWidth * 2, heightM + bezelWidth * 2, frameDepth);
+                // Frame - same width/height as screen, just has depth
+                // Bezel only visible from the sides
+                const frameGeo = new THREE.BoxGeometry(widthM, heightM, frameDepth);
                 const frameMat = new THREE.MeshStandardMaterial({ 
                     color: 0x111111, 
                     roughness: 0.7, 
