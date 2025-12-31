@@ -84,8 +84,6 @@
         
         .disclaimer { font-size: 10px; color: rgba(255,255,255,0.4); text-align: center; line-height: 1.5; padding: 15px; }
         
-        #hiddenCanvas { display: none; }
-        
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
@@ -207,8 +205,6 @@
             Pricing is an estimate based on selected dimensions. Actual panel configurations and final pricing confirmed during consultation.
         </div>
     </div>
-    
-    <canvas id="hiddenCanvas"></canvas>
 
     <script type="module">
         import * as THREE from 'three';
@@ -255,8 +251,28 @@
         // ===================== ELEMENTS =====================
         const previewImage = document.getElementById('previewImage');
         const previewContainer = document.getElementById('previewContainer');
-        const hiddenCanvas = document.getElementById('hiddenCanvas');
-        const hiddenCtx = hiddenCanvas.getContext('2d');
+        
+        // ===================== THREE.JS TEXTURE LOADER =====================
+        const textureLoader = new THREE.TextureLoader();
+        
+        function loadTextureAsync(url) {
+            return new Promise((resolve, reject) => {
+                textureLoader.load(
+                    url,
+                    (texture) => {
+                        console.log('Texture loaded successfully:', url);
+                        resolve(texture);
+                    },
+                    (progress) => {
+                        console.log('Loading texture...', progress);
+                    },
+                    (error) => {
+                        console.error('Texture load error:', error);
+                        reject(error);
+                    }
+                );
+            });
+        }
         
         // ===================== HELPERS =====================
         function showStatus(message, type) {
@@ -266,16 +282,6 @@
             if (type === 'success') {
                 setTimeout(() => { status.className = 'status-message'; }, 3000);
             }
-        }
-        
-        function loadImage(src) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => resolve(img);
-                img.onerror = () => reject(new Error('Failed to load: ' + src));
-                img.src = src;
-            });
         }
         
         function snapToIncrement(value, increments) {
@@ -388,68 +394,24 @@
             updatePreviewSize();
         }
         
-        // ===================== TEXTURE CREATION =====================
-        async function createTextureFromImage(genre, wallAspect) {
-            // Load source image
-            const srcImg = await loadImage(IMAGE_PATHS[genre]);
-            console.log('Source image loaded:', srcImg.width, 'x', srcImg.height);
-            
-            // Power-of-2 canvas dimensions
-            const canvasWidth = 2048;
-            const canvasHeight = 1024;
-            
-            hiddenCanvas.width = canvasWidth;
-            hiddenCanvas.height = canvasHeight;
-            
-            // Fill black
-            hiddenCtx.fillStyle = '#000000';
-            hiddenCtx.fillRect(0, 0, canvasWidth, canvasHeight);
-            
-            // Calculate crop for aspect ratio
-            const imgAspect = srcImg.width / srcImg.height;
-            let sx, sy, sw, sh;
-            
-            if (imgAspect > wallAspect) {
-                sh = srcImg.height;
-                sw = srcImg.height * wallAspect;
-                sx = (srcImg.width - sw) / 2;
-                sy = 0;
-            } else {
-                sw = srcImg.width;
-                sh = srcImg.width / wallAspect;
-                sx = 0;
-                sy = (srcImg.height - sh) / 2;
-            }
-            
-            // Draw to canvas
-            hiddenCtx.drawImage(srcImg, sx, sy, sw, sh, 0, 0, canvasWidth, canvasHeight);
-            console.log('Canvas drawn');
-            
-            // Convert to data URL then back to image for proper texture
-            const dataUrl = hiddenCanvas.toDataURL('image/png');
-            const textureImg = await loadImage(dataUrl);
-            console.log('Texture image ready:', textureImg.width, 'x', textureImg.height);
-            
-            // Create Three.js texture
-            const texture = new THREE.Texture(textureImg);
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.flipY = true;
-            texture.needsUpdate = true;
-            
-            return texture;
-        }
-        
         // ===================== AR GENERATION =====================
         async function generateAndLaunchAR() {
             const btn = document.getElementById('generateBtn');
             btn.disabled = true;
             btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" stroke-dasharray="30 60"/></svg> Generating...';
-            showStatus('Loading image...', 'info');
+            showStatus('Loading texture...', 'info');
             
             try {
-                // Create texture
-                const wallAspect = state.width / state.height;
-                const texture = await createTextureFromImage(state.genre, wallAspect);
+                // Load texture directly using THREE.TextureLoader
+                const imagePath = IMAGE_PATHS[state.genre];
+                const texture = await loadTextureAsync(imagePath);
+                
+                // Configure texture for USDZ - flipY should be false for USDZ
+                texture.flipY = false;
+                texture.colorSpace = THREE.SRGBColorSpace;
+                texture.needsUpdate = true;
+                
+                console.log('Texture configured:', texture.image.width, 'x', texture.image.height);
                 
                 showStatus('Building 3D model...', 'info');
                 
@@ -460,12 +422,11 @@
                 const heightM = state.height * FT_TO_M;
                 const depth = 0.08;
                 
-                // IMPORTANT: Use MeshStandardMaterial - USDZ only supports this!
-                // Use map for the texture (not emissiveMap) for proper display
+                // Screen with MeshStandardMaterial (required for USDZ)
                 const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
                 const screenMat = new THREE.MeshStandardMaterial({ 
                     map: texture,
-                    roughness: 0.5,
+                    roughness: 0.4,
                     metalness: 0.0,
                     side: THREE.FrontSide
                 });
@@ -487,13 +448,11 @@
                 group.add(screen);
                 scene.add(group);
                 
-                // Lights - important for MeshStandardMaterial to be visible
-                const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
-                scene.add(ambientLight);
-                
-                const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
-                directionalLight.position.set(0, 0, 5);
-                scene.add(directionalLight);
+                // Lighting
+                scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+                const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+                dirLight.position.set(0, 2, 5);
+                scene.add(dirLight);
                 
                 showStatus('Exporting to USDZ...', 'info');
                 
@@ -509,8 +468,9 @@
                 const arLink = document.getElementById('arLink');
                 arLink.href = url;
                 
+                // Set AR image
                 const arImg = document.getElementById('arImage');
-                arImg.src = hiddenCanvas.toDataURL('image/jpeg', 0.8);
+                arImg.src = imagePath;
                 
                 showStatus('Opening AR viewer...', 'success');
                 
