@@ -662,12 +662,29 @@
             
             try {
                 // Create texture canvas
-                const textureSize = 2048;
+                const textureSize = 1024;
                 const aspectRatio = state.height / state.width;
                 hiddenCanvas.width = textureSize;
                 hiddenCanvas.height = Math.round(textureSize * aspectRatio);
                 
                 drawContent(hiddenCtx, hiddenCanvas.width, hiddenCanvas.height);
+                
+                // Convert canvas to image (better USDZ compatibility)
+                const dataURL = hiddenCanvas.toDataURL('image/png');
+                
+                // Load as image texture
+                const texture = await new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const tex = new THREE.Texture(img);
+                        tex.flipY = false;
+                        tex.colorSpace = THREE.SRGBColorSpace;
+                        tex.needsUpdate = true;
+                        resolve(tex);
+                    };
+                    img.onerror = reject;
+                    img.src = dataURL;
+                });
                 
                 // Create scene
                 const scene = new THREE.Scene();
@@ -676,16 +693,12 @@
                 const heightM = state.height * FT_TO_M;
                 const depth = 0.08;
                 
-                // Create texture from canvas
-                const texture = new THREE.CanvasTexture(hiddenCanvas);
-                texture.colorSpace = THREE.SRGBColorSpace;
-                texture.flipY = true;
-                texture.needsUpdate = true;
-                
-                // Screen - use MeshBasicMaterial which works better with USDZ
+                // Screen mesh with texture
                 const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
-                const screenMat = new THREE.MeshBasicMaterial({ 
+                const screenMat = new THREE.MeshStandardMaterial({ 
                     map: texture,
+                    roughness: 0.5,
+                    metalness: 0.0,
                     side: THREE.FrontSide
                 });
                 const screen = new THREE.Mesh(screenGeo, screenMat);
@@ -706,8 +719,11 @@
                 group.add(screen);
                 scene.add(group);
                 
-                // Lights
-                scene.add(new THREE.AmbientLight(0xffffff, 2));
+                // Lights - needed for StandardMaterial
+                scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+                const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+                dirLight.position.set(0, 0, 10);
+                scene.add(dirLight);
                 
                 // Export
                 const exporter = new USDZExporter();
@@ -719,8 +735,8 @@
                 const arLink = document.getElementById('arLink');
                 arLink.href = url;
                 
-                const img = document.getElementById('arImage');
-                img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+                const arImg = document.getElementById('arImage');
+                arImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
                 
                 showStatus('Opening AR viewer...', 'success');
                 
