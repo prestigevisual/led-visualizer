@@ -55,13 +55,14 @@
         .viewing-distance { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); }
         .viewing-distance strong { color: #ffcc00; }
         
-        .button-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
-        .option-btn { padding: 12px 8px; background: rgba(0,100,200,0.15); border: 1px solid rgba(0,200,255,0.2); border-radius: 10px; color: rgba(255,255,255,0.7); font-size: 11px; font-weight: 600; cursor: pointer; text-align: center; transition: all 0.2s; }
+        .button-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .option-btn { padding: 10px 6px; background: rgba(0,100,200,0.15); border: 1px solid rgba(0,200,255,0.2); border-radius: 10px; color: rgba(255,255,255,0.7); font-size: 11px; font-weight: 600; cursor: pointer; text-align: center; transition: all 0.2s; }
         .option-btn.active { background: rgba(0,150,255,0.4); border-color: #00d4ff; color: #fff; }
-        .option-btn small { display: block; font-size: 9px; color: rgba(255,255,255,0.4); margin-top: 3px; font-weight: 400; }
-        .option-btn.active small { color: rgba(255,255,255,0.7); }
-        
-        .resolution-label { text-align: center; font-size: 14px; color: #00ff88; font-weight: 700; padding: 8px 0; background: rgba(0,255,100,0.1); border-radius: 8px; margin-top: 8px; }
+        .option-btn .pitch-name { font-size: 12px; font-weight: 700; }
+        .option-btn .pitch-label { font-size: 8px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+        .option-btn.active .pitch-label { color: rgba(255,255,255,0.7); }
+        .option-btn .pitch-res { font-size: 11px; color: #00ff88; font-weight: 700; margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .option-btn.active .pitch-res { color: #00ff88; }
         
         .slider-group { margin-bottom: 15px; }
         .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -134,10 +135,10 @@
         <div class="config-section">
             <div class="section-title">Screen Shape</div>
             <div class="button-grid">
-                <button class="option-btn active" data-shape="rectangle">Rectangle<small>16:9</small></button>
-                <button class="option-btn" data-shape="square">Square<small>1:1</small></button>
-                <button class="option-btn" data-shape="ultrawide">Ultrawide<small>21:9</small></button>
-                <button class="option-btn" data-shape="custom">Custom<small id="customRatio">Free</small></button>
+                <button class="option-btn active" data-shape="rectangle"><span class="pitch-name">Rectangle</span><div class="pitch-label">16:9</div></button>
+                <button class="option-btn" data-shape="square"><span class="pitch-name">Square</span><div class="pitch-label">1:1</div></button>
+                <button class="option-btn" data-shape="ultrawide"><span class="pitch-name">Ultrawide</span><div class="pitch-label">21:9</div></button>
+                <button class="option-btn" data-shape="custom"><span class="pitch-name">Custom</span><div class="pitch-label">Free</div></button>
             </div>
         </div>
         
@@ -161,13 +162,28 @@
         
         <div class="config-section">
             <div class="section-title">Pixel Pitch</div>
-            <div class="button-grid">
-                <button class="option-btn" data-pitch="0.9">0.9mm<small>Ultra-Premium</small></button>
-                <button class="option-btn" data-pitch="1.25">1.25mm<small>Premium</small></button>
-                <button class="option-btn active" data-pitch="1.9">1.9mm<small>Standard</small></button>
-                <button class="option-btn" data-pitch="2.6">2.6mm<small>Commercial</small></button>
+            <div class="button-grid" id="pitchGrid">
+                <button class="option-btn" data-pitch="0.9">
+                    <span class="pitch-name">0.9mm</span>
+                    <div class="pitch-label">Ultra-Premium</div>
+                    <div class="pitch-res" id="res-0.9">4K+</div>
+                </button>
+                <button class="option-btn" data-pitch="1.25">
+                    <span class="pitch-name">1.25mm</span>
+                    <div class="pitch-label">Premium</div>
+                    <div class="pitch-res" id="res-1.25">3K+</div>
+                </button>
+                <button class="option-btn active" data-pitch="1.9">
+                    <span class="pitch-name">1.9mm</span>
+                    <div class="pitch-label">Standard</div>
+                    <div class="pitch-res" id="res-1.9">2K+</div>
+                </button>
+                <button class="option-btn" data-pitch="2.6">
+                    <span class="pitch-name">2.6mm</span>
+                    <div class="pitch-label">Commercial</div>
+                    <div class="pitch-res" id="res-2.6">HD+</div>
+                </button>
             </div>
-            <div class="resolution-label" id="resolutionLabel">Equivalent: 2K+</div>
         </div>
         
         <div class="config-section">
@@ -228,6 +244,8 @@
         const WIDTH_INCREMENTS = [3.9, 5.9, 7.9, 9.8, 11.8, 13.8, 15.7, 17.7, 19.7, 21.7, 23.6, 25.6, 27.6, 29.5, 31.5, 33.5, 35.4, 37.4, 39.4];
         const HEIGHT_INCREMENTS = [2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.9, 10.0, 11.1, 12.2, 13.3, 14.4, 15.5, 16.6, 17.7, 18.9, 20.0, 21.1];
         
+        const PITCH_OPTIONS = [0.9, 1.25, 1.9, 2.6];
+        
         const PRICING = {
             'P0.9':  { costPerSqft: 385, minViewingFt: 7,  label: 'Ultra-Premium' },
             'P1.25': { costPerSqft: 212, minViewingFt: 10, label: 'Premium' },
@@ -256,7 +274,7 @@
         
         function loadImage(genre) {
             return new Promise((resolve) => {
-                if (loadedImages[genre]) {
+                if (loadedImages[genre] && loadedImages[genre].complete) {
                     resolve(loadedImages[genre]);
                     return;
                 }
@@ -266,13 +284,21 @@
                     loadedImages[genre] = img;
                     resolve(img);
                 };
-                img.onerror = () => resolve(null);
+                img.onerror = () => {
+                    console.error('Failed to load image:', genre);
+                    resolve(null);
+                };
                 img.src = IMAGE_PATHS[genre];
             });
         }
         
-        // Preload all images
-        Object.keys(IMAGE_PATHS).forEach(loadImage);
+        // Preload all images immediately
+        async function preloadAllImages() {
+            const promises = Object.keys(IMAGE_PATHS).map(genre => loadImage(genre));
+            await Promise.all(promises);
+            console.log('All images preloaded');
+        }
+        preloadAllImages();
         
         // ===================== HELPERS =====================
         function snapToIncrement(value, increments) {
@@ -320,10 +346,10 @@
             return '$' + price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '+';
         }
         
-        function calcResolution(pitch) {
-            const wMM = state.width * 304.8;
-            const hMM = state.height * 304.8;
-            return { w: Math.round(wMM / pitch), h: Math.round(hMM / pitch) };
+        function calcResolutionForPitch(widthFt, heightFt, pitchMM) {
+            const wMM = widthFt * 304.8;
+            const hMM = heightFt * 304.8;
+            return { w: Math.round(wMM / pitchMM), h: Math.round(hMM / pitchMM) };
         }
         
         // Calculate equivalent resolution label (2K, 3K, 4K, etc.)
@@ -357,6 +383,18 @@
             previewContainer.style.height = h + 'px';
         }
         
+        function updatePitchResolutions() {
+            // Update resolution label in each pitch button based on current dimensions
+            PITCH_OPTIONS.forEach(pitch => {
+                const res = calcResolutionForPitch(state.width, state.height, pitch);
+                const label = getResolutionLabel(res.w);
+                const el = document.getElementById(`res-${pitch}`);
+                if (el) {
+                    el.textContent = label;
+                }
+            });
+        }
+        
         function updateUI() {
             document.getElementById('widthValue').textContent = state.width + ' ft';
             document.getElementById('heightValue').textContent = state.height + ' ft';
@@ -367,19 +405,18 @@
             document.getElementById('pitchLabel').textContent = key + ' ' + PRICING[key].label;
             document.getElementById('viewingDistance').textContent = PRICING[key].minViewingFt + '+ feet';
             
-            const res = calcResolution(state.pixelPitch);
+            const res = calcResolutionForPitch(state.width, state.height, state.pixelPitch);
             const total = res.w * res.h;
             const sqft = Math.round(state.width * state.height);
             document.getElementById('resolutionSpec').textContent = res.w + ' x ' + res.h;
             document.getElementById('pixelsSpec').textContent = total >= 1000000 ? (total / 1000000).toFixed(2) + 'M' : Math.round(total / 1000) + 'K';
             document.getElementById('areaSpec').textContent = sqft + ' sq ft';
             
-            // Update resolution label under pixel pitch
-            const resLabel = getResolutionLabel(res.w);
-            document.getElementById('resolutionLabel').textContent = 'Equivalent: ' + resLabel;
-            
             document.getElementById('genreDescription').textContent = GENRES[state.genre].description;
             document.getElementById('arDimensions').textContent = state.width + ' ft × ' + state.height + ' ft';
+            
+            // Update all pitch button resolution labels
+            updatePitchResolutions();
             
             // Update preview image and size
             previewImage.src = IMAGE_PATHS[state.genre];
@@ -388,6 +425,7 @@
         
         // ===================== TEXTURE GENERATION =====================
         async function generateTexture() {
+            // Wait for image to load
             const img = await loadImage(state.genre);
             
             const textureSize = 2048;
@@ -398,11 +436,11 @@
             hiddenCanvas.width = texW;
             hiddenCanvas.height = texH;
             
-            // Fill black
+            // Fill black background
             hiddenCtx.fillStyle = '#000';
             hiddenCtx.fillRect(0, 0, texW, texH);
             
-            if (img) {
+            if (img && img.complete && img.naturalWidth > 0) {
                 // Center crop the image to match wall aspect ratio
                 const imgAspect = img.width / img.height;
                 const targetAspect = aspectRatio;
@@ -424,6 +462,20 @@
                 }
                 
                 hiddenCtx.drawImage(img, sx, sy, sw, sh, 0, 0, texW, texH);
+                console.log('Drew image to texture canvas:', texW, 'x', texH);
+            } else {
+                console.warn('Image not ready, using fallback color');
+                // Fallback: draw a gradient if image fails
+                const gradient = hiddenCtx.createLinearGradient(0, 0, texW, texH);
+                gradient.addColorStop(0, '#1a5a1a');
+                gradient.addColorStop(1, '#0a3a0a');
+                hiddenCtx.fillStyle = gradient;
+                hiddenCtx.fillRect(0, 0, texW, texH);
+                
+                hiddenCtx.fillStyle = '#fff';
+                hiddenCtx.font = 'bold 120px Arial';
+                hiddenCtx.textAlign = 'center';
+                hiddenCtx.fillText('PRESTIGE', texW/2, texH/2);
             }
             
             return hiddenCanvas;
@@ -434,11 +486,20 @@
             const btn = document.getElementById('generateBtn');
             btn.disabled = true;
             btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" stroke-dasharray="30 60"/></svg> Generating...';
-            showStatus('Creating 3D model...', 'info');
+            showStatus('Loading image...', 'info');
             
             try {
+                // Ensure image is loaded first
+                await loadImage(state.genre);
+                
+                showStatus('Creating 3D model...', 'info');
+                
                 // Generate texture
                 const textureCanvas = await generateTexture();
+                
+                // Create data URL from canvas for debugging
+                const dataUrl = textureCanvas.toDataURL('image/jpeg', 0.9);
+                console.log('Texture generated, size:', textureCanvas.width, 'x', textureCanvas.height);
                 
                 // Create scene
                 const scene = new THREE.Scene();
@@ -450,10 +511,9 @@
                 // Create texture from canvas
                 const texture = new THREE.CanvasTexture(textureCanvas);
                 texture.colorSpace = THREE.SRGBColorSpace;
-                texture.flipY = true;
                 texture.needsUpdate = true;
                 
-                // Screen
+                // Screen - MeshBasicMaterial for reliable USDZ export
                 const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
                 const screenMat = new THREE.MeshBasicMaterial({ 
                     map: texture,
@@ -490,8 +550,8 @@
                 const arLink = document.getElementById('arLink');
                 arLink.href = url;
                 
-                const img = document.getElementById('arImage');
-                img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+                const arImg = document.getElementById('arImage');
+                arImg.src = dataUrl; // Use the actual texture as the AR link image
                 
                 showStatus('Opening AR viewer...', 'success');
                 
