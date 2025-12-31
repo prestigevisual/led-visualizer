@@ -302,16 +302,10 @@
             });
         }
         
-        // ===================== DRAW CONTENT - FOR USDZ (MIRRORED) =====================
-        function drawGenreContentForUSDZ(ctx, width, height, genre) {
+        // ===================== DRAW FALLBACK CONTENT =====================
+        function drawFallbackContent(ctx, width, height, genre) {
             const g = GENRES[genre];
             
-            // Save context and flip horizontally to counter USDZ mirroring
-            ctx.save();
-            ctx.scale(-1, 1);
-            ctx.translate(-width, 0);
-            
-            // Create gradient background
             const gradient = ctx.createLinearGradient(0, 0, width, height);
             gradient.addColorStop(0, g.colors[0]);
             gradient.addColorStop(0.33, g.colors[1]);
@@ -321,7 +315,6 @@
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, width, height);
             
-            // Add visual elements
             ctx.fillStyle = 'rgba(255,255,255,0.1)';
             for (let i = 0; i < 20; i++) {
                 const x = (i * 123.456) % width;
@@ -332,67 +325,15 @@
                 ctx.fill();
             }
             
-            // Draw text
             ctx.fillStyle = 'rgba(255,255,255,0.9)';
             ctx.font = `bold ${height * 0.15}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(g.text, width / 2, height / 2);
             
-            // Subtitle
             ctx.fillStyle = 'rgba(255,255,255,0.6)';
             ctx.font = `${height * 0.05}px Arial`;
             ctx.fillText('LED VIDEO WALL PREVIEW', width / 2, height / 2 + height * 0.15);
-            
-            ctx.restore();
-        }
-        
-        // ===================== DRAW CONTENT - FOR PREVIEW (NORMAL) =====================
-        function drawGenreContentNormal(ctx, width, height, genre) {
-            const g = GENRES[genre];
-            
-            // Create gradient background
-            const gradient = ctx.createLinearGradient(0, 0, width, height);
-            gradient.addColorStop(0, g.colors[0]);
-            gradient.addColorStop(0.33, g.colors[1]);
-            gradient.addColorStop(0.66, g.colors[2]);
-            gradient.addColorStop(1, g.colors[3]);
-            
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, width, height);
-            
-            // Add visual elements
-            ctx.fillStyle = 'rgba(255,255,255,0.1)';
-            for (let i = 0; i < 20; i++) {
-                const x = (i * 123.456) % width;
-                const y = (i * 78.901) % height;
-                const r = ((i * 45.678) % 80) + 20;
-                ctx.beginPath();
-                ctx.arc(x, y, r, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            
-            // Draw text
-            ctx.fillStyle = 'rgba(255,255,255,0.9)';
-            ctx.font = `bold ${height * 0.15}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(g.text, width / 2, height / 2);
-            
-            // Subtitle
-            ctx.fillStyle = 'rgba(255,255,255,0.6)';
-            ctx.font = `${height * 0.05}px Arial`;
-            ctx.fillText('LED VIDEO WALL PREVIEW', width / 2, height / 2 + height * 0.15);
-        }
-        
-        // ===================== DRAW IMAGE TO CANVAS FOR USDZ =====================
-        function drawImageForUSDZ(ctx, img, width, height) {
-            // Flip horizontally to counter USDZ mirroring
-            ctx.save();
-            ctx.scale(-1, 1);
-            ctx.translate(-width, 0);
-            ctx.drawImage(img, 0, 0, width, height);
-            ctx.restore();
         }
         
         // ===================== HELPERS =====================
@@ -480,8 +421,7 @@
             previewCanvas.style.width = w + 'px';
             previewCanvas.style.height = h + 'px';
             
-            // Draw preview content (normal orientation)
-            drawGenreContentNormal(previewCtx, previewCanvas.width, previewCanvas.height, state.genre);
+            drawFallbackContent(previewCtx, previewCanvas.width, previewCanvas.height, state.genre);
         }
         
         function updatePitchResolutions() {
@@ -525,7 +465,7 @@
             showStatus('Loading image...', 'info');
             
             try {
-                // Try to load the actual image first
+                // Try to load actual image
                 let useRealImage = false;
                 let img;
                 try {
@@ -533,22 +473,23 @@
                     useRealImage = true;
                     console.log('Real image loaded:', img.width, 'x', img.height);
                 } catch (e) {
-                    console.log('Could not load real image, using generated content');
+                    console.log('Using fallback content');
                 }
                 
                 showStatus('Creating texture...', 'info');
                 
-                // Create texture canvas - power of 2
+                // Texture canvas - power of 2
                 const texWidth = 1024;
                 const texHeight = 512;
                 textureCanvas.width = texWidth;
                 textureCanvas.height = texHeight;
                 
-                // Draw content (mirrored for USDZ)
+                // Draw content - NO FLIP for real images
                 if (useRealImage) {
-                    drawImageForUSDZ(textureCtx, img, texWidth, texHeight);
+                    // Draw image normally - no mirroring
+                    textureCtx.drawImage(img, 0, 0, texWidth, texHeight);
                 } else {
-                    drawGenreContentForUSDZ(textureCtx, texWidth, texHeight, state.genre);
+                    drawFallbackContent(textureCtx, texWidth, texHeight, state.genre);
                 }
                 
                 showStatus('Building 3D model...', 'info');
@@ -558,32 +499,32 @@
                 
                 const widthM = state.width * FT_TO_M;
                 const heightM = state.height * FT_TO_M;
-                const depth = 0.08;
-                const frameThickness = 0.03; // Bezel thickness
+                const frameDepth = 0.025; // Thin sleek bezel - 2.5cm
+                const bezelWidth = 0.015; // Very thin bezel edge - 1.5cm
                 
-                // Create texture - flipY = true to fix upside down
+                // Create texture
                 const texture = new THREE.CanvasTexture(textureCanvas);
                 texture.flipY = true;
                 texture.colorSpace = THREE.SRGBColorSpace;
                 texture.needsUpdate = true;
                 
-                // Screen mesh - SAME SIZE as visible area (no gap)
-                const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
+                // Screen - slightly larger than frame opening to ensure no gap
+                const screenGeo = new THREE.PlaneGeometry(widthM + 0.01, heightM + 0.01);
                 const screenMat = new THREE.MeshStandardMaterial({ 
                     map: texture,
-                    roughness: 0.3,
+                    roughness: 0.2,
                     metalness: 0.0,
-                    side: THREE.DoubleSide
+                    side: THREE.FrontSide
                 });
                 const screen = new THREE.Mesh(screenGeo, screenMat);
-                screen.position.z = depth / 2 + 0.001;
+                screen.position.z = frameDepth / 2 + 0.001;
                 
-                // Frame - slightly larger than screen
-                const frameGeo = new THREE.BoxGeometry(widthM + frameThickness * 2, heightM + frameThickness * 2, depth);
+                // Frame - thin bezel
+                const frameGeo = new THREE.BoxGeometry(widthM + bezelWidth * 2, heightM + bezelWidth * 2, frameDepth);
                 const frameMat = new THREE.MeshStandardMaterial({ 
                     color: 0x111111, 
-                    roughness: 0.8, 
-                    metalness: 0.3 
+                    roughness: 0.7, 
+                    metalness: 0.4 
                 });
                 const frame = new THREE.Mesh(frameGeo, frameMat);
                 
