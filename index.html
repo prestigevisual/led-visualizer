@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>Prestige Visual System - AR LED Video Wall Visualizer</title>
     
-    <!-- Import Map for Three.js modules -->
     <script type="importmap">
     {
         "imports": {
@@ -81,12 +80,10 @@
         
         #hiddenCanvas { display: none; }
         
-        .debug-panel { background: rgba(0,0,0,0.8); border: 1px solid #333; border-radius: 10px; padding: 15px; margin-bottom: 15px; font-family: monospace; font-size: 11px; }
-        .debug-panel h4 { color: #00d4ff; margin-bottom: 10px; }
-        .debug-log { color: #aaa; max-height: 120px; overflow-y: auto; }
-        .debug-log div { padding: 2px 0; border-bottom: 1px solid #222; }
-        .debug-log .error { color: #ff6666; }
-        .debug-log .success { color: #00ff88; }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -100,7 +97,7 @@
             <div class="preview-container">
                 <canvas id="previewCanvas"></canvas>
             </div>
-            <div class="preview-label">Preview - Content will display on LED wall</div>
+            <div class="preview-label">Preview - Tap button below to view in AR</div>
         </div>
         
         <div class="status-message" id="statusMessage"></div>
@@ -114,12 +111,7 @@
             <img id="arImage">
         </a>
         
-        <div class="ar-note">Generates 3D model and opens iOS AR viewer</div>
-        
-        <div class="debug-panel">
-            <h4>Debug Log</h4>
-            <div class="debug-log" id="debugLog"></div>
-        </div>
+        <div class="ar-note">Opens iOS AR viewer with real-world scale</div>
         
         <div class="config-section">
             <div class="section-title">Pricing</div>
@@ -202,33 +194,13 @@
         import * as THREE from 'three';
         import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
         
-        // Debug logging
-        function log(message, type = 'info') {
-            const debugLog = document.getElementById('debugLog');
-            const div = document.createElement('div');
-            div.className = type;
-            div.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
-            debugLog.insertBefore(div, debugLog.firstChild);
-            console.log(`[${type}] ${message}`);
-        }
-        
         function showStatus(message, type) {
             const status = document.getElementById('statusMessage');
             status.textContent = message;
             status.className = `status-message show ${type}`;
-        }
-        
-        log('App initializing...');
-        log('Three.js loaded', 'success');
-        log('USDZExporter loaded', 'success');
-        
-        // Check AR support
-        const a = document.createElement('a');
-        const arSupported = a.relList && a.relList.supports && a.relList.supports('ar');
-        log(`AR Quick Look supported: ${arSupported}`);
-        
-        if (!arSupported) {
-            showStatus('AR requires iOS Safari. Please open in Safari on iPhone/iPad.', 'error');
+            if (type === 'success') {
+                setTimeout(() => { status.className = 'status-message'; }, 3000);
+            }
         }
         
         // ===================== CONFIG =====================
@@ -314,6 +286,7 @@
         }
         
         function formatPrice(price) {
+            if (price < 10000) price = 10000;
             return '$' + price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '+';
         }
         
@@ -345,84 +318,325 @@
         }
         
         // ===================== DRAWING =====================
-        function drawNature(ctx, w, h, t) {
-            // Sky
+        function drawNature(ctx, w, h) {
             const sky = ctx.createLinearGradient(0, 0, 0, h * 0.7);
             sky.addColorStop(0, '#0a0a20');
-            sky.addColorStop(0.5, `hsl(${200 + Math.sin(t*0.01)*30},50%,15%)`);
-            sky.addColorStop(1, `hsl(${180 + Math.sin(t*0.008)*20},40%,20%)`);
+            sky.addColorStop(0.5, '#1a3a4a');
+            sky.addColorStop(1, '#2a4a3a');
             ctx.fillStyle = sky;
             ctx.fillRect(0, 0, w, h);
             
-            // Aurora
             for (let a = 0; a < 5; a++) {
                 ctx.save();
-                ctx.globalAlpha = 0.3 + Math.sin(t*0.03 + a) * 0.15;
-                const ag = ctx.createLinearGradient(0, h*0.1, 0, h*0.5);
+                ctx.globalAlpha = 0.35;
+                const ag = ctx.createLinearGradient(0, h*0.1, 0, h*0.55);
                 ag.addColorStop(0, 'transparent');
-                ag.addColorStop(0.3, `hsl(${120 + a*20 + Math.sin(t*0.02)*30},80%,50%)`);
-                ag.addColorStop(0.7, `hsl(${180 + a*15 + Math.sin(t*0.025)*20},70%,40%)`);
+                ag.addColorStop(0.3, `hsl(${120 + a*25},80%,50%)`);
+                ag.addColorStop(0.7, `hsl(${180 + a*20},70%,40%)`);
                 ag.addColorStop(1, 'transparent');
                 ctx.fillStyle = ag;
                 ctx.beginPath();
-                ctx.moveTo(0, h*0.1);
-                for (let ax = 0; ax <= w; ax += 20) {
-                    const ay = h*0.25 + Math.sin(ax*0.008 + t*0.03 + a*0.5) * h*0.1;
+                ctx.moveTo(0, h*0.15);
+                for (let ax = 0; ax <= w; ax += 15) {
+                    const ay = h*0.28 + Math.sin(ax*0.012 + a*0.8) * h*0.08;
                     ctx.lineTo(ax, ay);
                 }
-                ctx.lineTo(w, h*0.5);
-                ctx.lineTo(0, h*0.5);
+                ctx.lineTo(w, h*0.55);
+                ctx.lineTo(0, h*0.55);
                 ctx.fill();
                 ctx.restore();
             }
             
-            // Stars
             ctx.fillStyle = '#fff';
-            for (let st = 0; st < 80; st++) {
+            for (let st = 0; st < 100; st++) {
                 const stx = (st * 193.7) % w;
-                const sty = (st * 71.3) % (h * 0.5);
-                ctx.globalAlpha = 0.5 + Math.sin(t*0.15 + st) * 0.3;
+                const sty = (st * 71.3) % (h * 0.55);
+                ctx.globalAlpha = 0.4 + (st % 5) * 0.12;
                 ctx.beginPath();
-                ctx.arc(stx, sty, 1.5, 0, Math.PI*2);
+                ctx.arc(stx, sty, 1 + (st % 3) * 0.5, 0, Math.PI*2);
                 ctx.fill();
             }
             ctx.globalAlpha = 1;
             
-            // Mountains
             ctx.fillStyle = '#1a1a2e';
             ctx.beginPath();
             ctx.moveTo(0, h);
-            ctx.lineTo(0, h*0.7);
-            ctx.lineTo(w*0.15, h*0.5);
-            ctx.lineTo(w*0.3, h*0.65);
-            ctx.lineTo(w*0.5, h*0.4);
-            ctx.lineTo(w*0.7, h*0.6);
-            ctx.lineTo(w*0.85, h*0.45);
-            ctx.lineTo(w, h*0.55);
+            ctx.lineTo(0, h*0.72);
+            ctx.lineTo(w*0.12, h*0.52);
+            ctx.lineTo(w*0.28, h*0.68);
+            ctx.lineTo(w*0.48, h*0.38);
+            ctx.lineTo(w*0.68, h*0.58);
+            ctx.lineTo(w*0.85, h*0.42);
+            ctx.lineTo(w, h*0.58);
             ctx.lineTo(w, h);
             ctx.fill();
             
-            // Snow caps
-            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
             ctx.beginPath();
-            ctx.moveTo(w*0.5, h*0.4);
-            ctx.lineTo(w*0.45, h*0.48);
-            ctx.lineTo(w*0.55, h*0.48);
+            ctx.moveTo(w*0.48, h*0.38);
+            ctx.lineTo(w*0.42, h*0.50);
+            ctx.lineTo(w*0.54, h*0.50);
             ctx.fill();
             
             ctx.beginPath();
-            ctx.moveTo(w*0.85, h*0.45);
-            ctx.lineTo(w*0.8, h*0.52);
-            ctx.lineTo(w*0.9, h*0.52);
+            ctx.moveTo(w*0.85, h*0.42);
+            ctx.lineTo(w*0.79, h*0.52);
+            ctx.lineTo(w*0.91, h*0.52);
             ctx.fill();
             
-            // Lake
-            ctx.fillStyle = 'rgba(20,40,60,0.8)';
-            ctx.fillRect(0, h*0.85, w, h*0.15);
+            const lake = ctx.createLinearGradient(0, h*0.82, 0, h);
+            lake.addColorStop(0, 'rgba(20,50,70,0.9)');
+            lake.addColorStop(1, 'rgba(10,30,50,0.95)');
+            ctx.fillStyle = lake;
+            ctx.fillRect(0, h*0.82, w, h*0.18);
+            
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.font = `bold ${Math.round(w*0.04)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('PRESTIGE VISUAL', w/2, h*0.92);
         }
         
-        function drawContent(ctx, w, h, t) {
-            drawNature(ctx, w, h, t);
+        function drawWorship(ctx, w, h) {
+            const bg = ctx.createLinearGradient(0, 0, 0, h);
+            bg.addColorStop(0, '#1a0a30');
+            bg.addColorStop(0.5, '#2a1a50');
+            bg.addColorStop(1, '#4a3020');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, w, h);
+            
+            for (let i = 0; i < 8; i++) {
+                ctx.save();
+                ctx.globalAlpha = 0.15;
+                const rayX = w * 0.5 + Math.sin(i*0.8) * w * 0.25;
+                const rg = ctx.createLinearGradient(rayX, h, rayX, 0);
+                rg.addColorStop(0, `hsl(${280 + i*12},70%,55%)`);
+                rg.addColorStop(1, 'transparent');
+                ctx.fillStyle = rg;
+                ctx.beginPath();
+                ctx.moveTo(rayX - 50, h);
+                ctx.lineTo(rayX - 15, 0);
+                ctx.lineTo(rayX + 15, 0);
+                ctx.lineTo(rayX + 50, h);
+                ctx.fill();
+                ctx.restore();
+            }
+            
+            ctx.fillStyle = '#fff';
+            for (let s = 0; s < 60; s++) {
+                ctx.globalAlpha = 0.5 + (s % 4) * 0.1;
+                ctx.beginPath();
+                ctx.arc((s * 137) % w, (s * 89) % (h*0.6), 1.2, 0, Math.PI*2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            
+            ctx.fillStyle = 'rgba(255,220,150,0.3)';
+            const cx = w/2, cy = h*0.45;
+            ctx.fillRect(cx - 10, cy - 90, 20, 180);
+            ctx.fillRect(cx - 60, cy - 50, 120, 20);
+        }
+        
+        function drawCorporate(ctx, w, h) {
+            const bg = ctx.createLinearGradient(0, 0, w, h);
+            bg.addColorStop(0, '#0a2540');
+            bg.addColorStop(1, '#0d47a1');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, w, h);
+            
+            ctx.strokeStyle = 'rgba(100,200,255,0.1)';
+            ctx.lineWidth = 1;
+            for (let gx = 0; gx < w; gx += 60) {
+                ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke();
+            }
+            for (let gy = 0; gy < h; gy += 60) {
+                ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+            }
+            
+            for (let b = 0; b < 8; b++) {
+                const bh = 60 + Math.abs(Math.sin(b*0.7)) * 140;
+                const bx = w*0.1 + b * (w*0.1);
+                const bgr = ctx.createLinearGradient(0, h*0.85 - bh, 0, h*0.85);
+                bgr.addColorStop(0, '#00e5ff');
+                bgr.addColorStop(1, '#0066cc');
+                ctx.fillStyle = bgr;
+                ctx.fillRect(bx, h*0.85 - bh, w*0.07, bh);
+            }
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${Math.round(w*0.05)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('QUARTERLY REPORT', w/2, h*0.15);
+            
+            ctx.fillStyle = 'rgba(0,200,255,0.8)';
+            ctx.font = `${Math.round(w*0.025)}px Arial`;
+            ctx.fillText('Performance Dashboard', w/2, h*0.22);
+        }
+        
+        function drawSports(ctx, w, h) {
+            const fg = ctx.createLinearGradient(0, 0, 0, h);
+            fg.addColorStop(0, '#1b5e20');
+            fg.addColorStop(0.5, '#388e3c');
+            fg.addColorStop(1, '#1b5e20');
+            ctx.fillStyle = fg;
+            ctx.fillRect(0, 0, w, h);
+            
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(w*0.05, h*0.05, w*0.9, h*0.9);
+            ctx.beginPath();
+            ctx.moveTo(w/2, h*0.05);
+            ctx.lineTo(w/2, h*0.95);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(w/2, h/2, w*0.1, 0, Math.PI*2);
+            ctx.stroke();
+            
+            ctx.fillStyle = 'rgba(0,0,0,0.9)';
+            ctx.fillRect(w*0.25, h*0.02, w*0.5, h*0.18);
+            ctx.strokeStyle = '#ffc107';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(w*0.25, h*0.02, w*0.5, h*0.18);
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${Math.round(w*0.03)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('HOME', w*0.38, h*0.08);
+            ctx.fillText('AWAY', w*0.62, h*0.08);
+            
+            ctx.fillStyle = '#00ff00';
+            ctx.font = `bold ${Math.round(w*0.055)}px monospace`;
+            ctx.fillText('3 - 1', w/2, h*0.165);
+        }
+        
+        function drawConcert(ctx, w, h) {
+            ctx.fillStyle = '#080010';
+            ctx.fillRect(0, 0, w, h);
+            
+            const colors = ['#ff00ff','#00ffff','#ffff00','#ff0088','#00ff88','#8800ff'];
+            for (let i = 0; i < 10; i++) {
+                ctx.save();
+                ctx.globalAlpha = 0.25;
+                const ang = Math.sin(i*0.5) * 0.5;
+                const topX = w/2 + Math.tan(ang) * h;
+                const lg = ctx.createLinearGradient(w/2, h, topX, 0);
+                lg.addColorStop(0, colors[i % colors.length]);
+                lg.addColorStop(1, 'transparent');
+                ctx.fillStyle = lg;
+                ctx.beginPath();
+                ctx.moveTo(w/2, h);
+                ctx.lineTo(topX - w*0.06, 0);
+                ctx.lineTo(topX + w*0.06, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+            
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.moveTo(0, h);
+            for (let cx = 0; cx <= w; cx += w*0.02) {
+                ctx.lineTo(cx, h - (h*0.08 + Math.sin(cx*0.008) * h*0.03));
+            }
+            ctx.lineTo(w, h);
+            ctx.fill();
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${Math.round(w*0.1)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.shadowColor = '#ff00ff';
+            ctx.shadowBlur = 30;
+            ctx.fillText('LIVE', w/2, h*0.35);
+            ctx.shadowBlur = 0;
+        }
+        
+        function drawRetail(ctx, w, h) {
+            const rg = ctx.createLinearGradient(0, 0, w, h);
+            rg.addColorStop(0, '#e91e63');
+            rg.addColorStop(0.5, '#9c27b0');
+            rg.addColorStop(1, '#673ab7');
+            ctx.fillStyle = rg;
+            ctx.fillRect(0, 0, w, h);
+            
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            for (let sp = 0; sp < 40; sp++) {
+                const spx = (sp * 73) % w;
+                const spy = (sp * 97) % h;
+                ctx.beginPath();
+                ctx.arc(spx, spy, 3, 0, Math.PI*2);
+                ctx.fill();
+            }
+            
+            ctx.fillStyle = '#d32f2f';
+            ctx.beginPath();
+            ctx.moveTo(w*0.15, h*0.35);
+            ctx.lineTo(w*0.85, h*0.35);
+            ctx.lineTo(w*0.88, h*0.5);
+            ctx.lineTo(w*0.85, h*0.65);
+            ctx.lineTo(w*0.15, h*0.65);
+            ctx.lineTo(w*0.12, h*0.5);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${Math.round(w*0.12)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('SALE', w/2, h*0.5);
+            ctx.textBaseline = 'alphabetic';
+            
+            ctx.font = `bold ${Math.round(w*0.04)}px Arial`;
+            ctx.fillText('UP TO 50% OFF', w/2, h*0.82);
+        }
+        
+        function drawCinema(ctx, w, h) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, w, h);
+            
+            const letterboxH = h * 0.12;
+            const viewH = h - letterboxH * 2;
+            
+            const sky = ctx.createLinearGradient(0, letterboxH, 0, letterboxH + viewH * 0.6);
+            sky.addColorStop(0, '#1a1a3a');
+            sky.addColorStop(1, '#8a4a2a');
+            ctx.fillStyle = sky;
+            ctx.fillRect(0, letterboxH, w, viewH * 0.6);
+            
+            const sunGlow = ctx.createRadialGradient(w*0.7, letterboxH + viewH*0.3, 0, w*0.7, letterboxH + viewH*0.3, w*0.15);
+            sunGlow.addColorStop(0, 'rgba(255,200,100,1)');
+            sunGlow.addColorStop(0.4, 'rgba(255,150,50,0.5)');
+            sunGlow.addColorStop(1, 'transparent');
+            ctx.fillStyle = sunGlow;
+            ctx.fillRect(0, letterboxH, w, viewH);
+            
+            ctx.fillStyle = '#1a1a2a';
+            ctx.beginPath();
+            ctx.moveTo(0, letterboxH + viewH * 0.6);
+            ctx.lineTo(w*0.2, letterboxH + viewH * 0.4);
+            ctx.lineTo(w*0.4, letterboxH + viewH * 0.55);
+            ctx.lineTo(w*0.6, letterboxH + viewH * 0.35);
+            ctx.lineTo(w*0.8, letterboxH + viewH * 0.5);
+            ctx.lineTo(w, letterboxH + viewH * 0.45);
+            ctx.lineTo(w, letterboxH + viewH);
+            ctx.lineTo(0, letterboxH + viewH);
+            ctx.fill();
+            
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, w, letterboxH);
+            ctx.fillRect(0, h - letterboxH, w, letterboxH);
+        }
+        
+        function drawContent(ctx, w, h) {
+            ctx.clearRect(0, 0, w, h);
+            
+            switch(state.genre) {
+                case 'worship': drawWorship(ctx, w, h); break;
+                case 'corporate': drawCorporate(ctx, w, h); break;
+                case 'sports': drawSports(ctx, w, h); break;
+                case 'cinema': drawCinema(ctx, w, h); break;
+                case 'concert': drawConcert(ctx, w, h); break;
+                case 'retail': drawRetail(ctx, w, h); break;
+                default: drawNature(ctx, w, h);
+            }
         }
         
         // ===================== PREVIEW =====================
@@ -435,51 +649,54 @@
         
         function animatePreview() {
             frameCount++;
-            drawContent(previewCtx, previewCanvas.width, previewCanvas.height, frameCount);
+            drawContent(previewCtx, previewCanvas.width, previewCanvas.height);
             requestAnimationFrame(animatePreview);
         }
         
         // ===================== AR GENERATION =====================
         async function generateAndLaunchAR() {
-            log('Starting AR generation...');
             const btn = document.getElementById('generateBtn');
             btn.disabled = true;
-            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="animation: spin 1s linear infinite;"><path d="M12 2v4m0 12v4m-8-10H0m24 0h-4m-2.93-6.36l-2.83 2.83m-8.48 8.48l-2.83 2.83m0-14.14l2.83 2.83m8.48 8.48l2.83 2.83"/></svg> Generating...';
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" stroke-dasharray="30 60"/></svg> Generating...';
             showStatus('Creating 3D model...', 'info');
             
             try {
-                // Create texture
-                log('Creating texture...');
-                const textureSize = 1024;
+                // Create texture canvas
+                const textureSize = 2048;
+                const aspectRatio = state.height / state.width;
                 hiddenCanvas.width = textureSize;
-                hiddenCanvas.height = Math.round(textureSize * (state.height / state.width));
-                drawContent(hiddenCtx, hiddenCanvas.width, hiddenCanvas.height, frameCount);
+                hiddenCanvas.height = Math.round(textureSize * aspectRatio);
+                
+                drawContent(hiddenCtx, hiddenCanvas.width, hiddenCanvas.height);
                 
                 // Create scene
-                log('Building 3D scene...');
                 const scene = new THREE.Scene();
                 
                 const widthM = state.width * FT_TO_M;
                 const heightM = state.height * FT_TO_M;
-                const depth = 0.1;
+                const depth = 0.08;
                 
-                // Texture
+                // Create texture from canvas
                 const texture = new THREE.CanvasTexture(hiddenCanvas);
-                texture.flipY = false;
                 texture.colorSpace = THREE.SRGBColorSpace;
+                texture.flipY = true;
+                texture.needsUpdate = true;
                 
-                // Screen mesh
+                // Screen - use MeshBasicMaterial which works better with USDZ
                 const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
-                const screenMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.FrontSide });
+                const screenMat = new THREE.MeshBasicMaterial({ 
+                    map: texture,
+                    side: THREE.FrontSide
+                });
                 const screen = new THREE.Mesh(screenGeo, screenMat);
-                screen.position.z = depth / 2 + 0.002;
+                screen.position.z = depth / 2 + 0.003;
                 
-                // Frame mesh
-                const frameGeo = new THREE.BoxGeometry(widthM + 0.08, heightM + 0.08, depth);
+                // Frame
+                const frameGeo = new THREE.BoxGeometry(widthM + 0.06, heightM + 0.06, depth);
                 const frameMat = new THREE.MeshStandardMaterial({ 
-                    color: 0x111111, 
-                    roughness: 0.9, 
-                    metalness: 0.1 
+                    color: 0x1a1a1a, 
+                    roughness: 0.8, 
+                    metalness: 0.2 
                 });
                 const frame = new THREE.Mesh(frameGeo, frameMat);
                 
@@ -489,42 +706,34 @@
                 group.add(screen);
                 scene.add(group);
                 
-                // Light
-                scene.add(new THREE.AmbientLight(0xffffff, 1));
+                // Lights
+                scene.add(new THREE.AmbientLight(0xffffff, 2));
                 
-                // Export USDZ
-                log('Exporting USDZ...');
+                // Export
                 const exporter = new USDZExporter();
                 const arrayBuffer = await exporter.parse(scene);
-                log(`USDZ size: ${(arrayBuffer.byteLength / 1024).toFixed(1)} KB`, 'success');
                 
-                // Create blob and URL
                 const blob = new Blob([arrayBuffer], { type: 'model/vnd.usdz+zip' });
                 const url = URL.createObjectURL(blob);
                 
-                // Set up AR link
                 const arLink = document.getElementById('arLink');
                 arLink.href = url;
                 
-                // Create a tiny transparent image for the link
                 const img = document.getElementById('arImage');
                 img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
                 
-                log('Launching AR Quick Look...', 'success');
                 showStatus('Opening AR viewer...', 'success');
                 
-                // Trigger the AR link
-                arLink.click();
+                setTimeout(() => arLink.click(), 100);
                 
-                // Reset button
                 setTimeout(() => {
                     btn.disabled = false;
                     btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg> View in Your Space';
                     URL.revokeObjectURL(url);
-                }, 3000);
+                }, 5000);
                 
             } catch (error) {
-                log(`Error: ${error.message}`, 'error');
+                console.error('AR Error:', error);
                 showStatus(`Error: ${error.message}`, 'error');
                 btn.disabled = false;
                 btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg> View in Your Space';
@@ -611,14 +820,6 @@
         window.addEventListener('resize', resizePreviewCanvas);
         updateUI();
         animatePreview();
-        log('App ready!', 'success');
     </script>
-    
-    <style>
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-    </style>
 </body>
 </html>
