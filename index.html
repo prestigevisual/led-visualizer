@@ -64,6 +64,8 @@
         .spec-value { font-size: 14px; color: #00d4ff; font-weight: 600; }
         
         .disclaimer { font-size: 10px; color: rgba(255,255,255,0.4); text-align: center; line-height: 1.5; padding: 15px; }
+        
+        .loading-indicator { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #00d4ff; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -76,8 +78,9 @@
         <div class="preview-section">
             <div class="preview-container">
                 <canvas id="previewCanvas"></canvas>
+                <div class="loading-indicator" id="loadingIndicator" style="display:none;">Loading HD Image...</div>
             </div>
-            <div class="preview-label">Preview - Select content type below</div>
+            <div class="preview-label">Preview with LED pixel simulation</div>
         </div>
         
         <a id="arLink" rel="ar" href="#" class="ar-button">
@@ -128,10 +131,10 @@
         <div class="config-section">
             <div class="section-title">Pixel Pitch</div>
             <div class="button-grid">
-                <button class="option-btn" data-pitch="0.9">0.9mm<small>Ultra-Premium</small></button>
-                <button class="option-btn" data-pitch="1.25">1.25mm<small>Premium</small></button>
-                <button class="option-btn active" data-pitch="1.9">1.9mm<small>Standard</small></button>
-                <button class="option-btn" data-pitch="2.6">2.6mm<small>Commercial</small></button>
+                <button class="option-btn" data-pitch="0.9">0.9mm<small>Ultra-Fine</small></button>
+                <button class="option-btn" data-pitch="1.5">1.5mm<small>Premium</small></button>
+                <button class="option-btn active" data-pitch="2.5">2.5mm<small>Standard</small></button>
+                <button class="option-btn" data-pitch="4.0">4.0mm<small>Outdoor</small></button>
             </div>
         </div>
         
@@ -140,20 +143,20 @@
             <div class="genre-grid">
                 <button class="genre-btn" data-genre="worship">Worship</button>
                 <button class="genre-btn" data-genre="corporate">Corporate</button>
-                <button class="genre-btn" data-genre="sports">Sports</button>
+                <button class="genre-btn active" data-genre="sports">Sports</button>
                 <button class="genre-btn" data-genre="cinema">Cinema</button>
                 <button class="genre-btn" data-genre="concert">Concert</button>
                 <button class="genre-btn" data-genre="retail">Retail</button>
-                <button class="genre-btn active" data-genre="nature">Nature</button>
+                <button class="genre-btn" data-genre="nature">Nature</button>
             </div>
-            <div class="genre-description" id="genreDescription">Ambient & Demo Content</div>
+            <div class="genre-description" id="genreDescription">Sports Bars & Game Day</div>
         </div>
         
         <div class="config-section">
             <div class="section-title">Specifications</div>
             <div class="specs-row">
-                <div class="spec-box"><div class="spec-label">Resolution</div><div class="spec-value" id="resolutionSpec">2252 x 1267</div></div>
-                <div class="spec-box"><div class="spec-label">Total Pixels</div><div class="spec-value" id="pixelsSpec">2.85M</div></div>
+                <div class="spec-box"><div class="spec-label">Resolution</div><div class="spec-value" id="resolutionSpec">1684 x 947</div></div>
+                <div class="spec-box"><div class="spec-label">Total Pixels</div><div class="spec-value" id="pixelsSpec">1.59M</div></div>
                 <div class="spec-box"><div class="spec-label">Area</div><div class="spec-value" id="areaSpec">106 sq ft</div></div>
             </div>
         </div>
@@ -166,6 +169,17 @@
     <canvas id="textureCanvas" style="display:none;"></canvas>
 
     <script>
+        // High-quality image URLs (Unsplash - free to use)
+        var IMAGE_URLS = {
+            sports: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1920&q=90',
+            worship: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=1920&q=90',
+            corporate: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1920&q=90',
+            concert: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=1920&q=90',
+            retail: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=90',
+            cinema: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1920&q=90',
+            nature: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=1920&q=90'
+        };
+        
         var GENRES = {
             worship: { label: 'Worship', description: 'Churches & Houses of Worship' },
             corporate: { label: 'Corporate', description: 'Lobbies & Boardrooms' },
@@ -180,23 +194,47 @@
         var HEIGHT_INCREMENTS = [2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.9, 10.0, 11.1, 12.2, 13.3, 14.4, 15.5, 16.6, 17.7, 18.9, 20.0, 21.1];
         
         var PRICING = {
-            'P0.9':  { costPerSqft: 385, minViewingFt: 7,  label: 'Ultra-Premium' },
-            'P1.25': { costPerSqft: 212, minViewingFt: 10, label: 'Premium' },
-            'P1.9':  { costPerSqft: 185, minViewingFt: 15, label: 'Standard' },
-            'P2.6':  { costPerSqft: 140, minViewingFt: 21, label: 'Commercial' }
+            'P0.9':  { costPerSqft: 385, minViewingFt: 7,  label: 'Ultra-Fine' },
+            'P1.5': { costPerSqft: 250, minViewingFt: 12, label: 'Premium' },
+            'P2.5':  { costPerSqft: 165, minViewingFt: 20, label: 'Standard' },
+            'P4.0':  { costPerSqft: 95, minViewingFt: 32, label: 'Outdoor' }
         };
         
         var MARGIN_DIVISOR = 0.218;
         var FT_TO_M = 0.3048;
         
-        var state = { shape: 'rectangle', width: 13.8, height: 7.7, pixelPitch: 1.9, genre: 'nature' };
+        var state = { shape: 'rectangle', width: 13.8, height: 7.7, pixelPitch: 2.5, genre: 'sports' };
         var currentUsdzUrl = null;
+        var loadedImages = {};
+        var imagesLoading = {};
         
         var previewCanvas = document.getElementById('previewCanvas');
         var previewCtx = previewCanvas.getContext('2d');
         var textureCanvas = document.getElementById('textureCanvas');
         var textureCtx = textureCanvas.getContext('2d');
-        var frameCount = 0;
+        
+        // Load images
+        function loadImage(genre) {
+            if (loadedImages[genre]) return Promise.resolve(loadedImages[genre]);
+            if (imagesLoading[genre]) return imagesLoading[genre];
+            
+            imagesLoading[genre] = new Promise(function(resolve) {
+                var img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = function() {
+                    loadedImages[genre] = img;
+                    resolve(img);
+                };
+                img.onerror = function() {
+                    resolve(null);
+                };
+                img.src = IMAGE_URLS[genre];
+            });
+            return imagesLoading[genre];
+        }
+        
+        // Preload all images
+        Object.keys(IMAGE_URLS).forEach(loadImage);
         
         function snapToIncrement(value, increments) {
             return increments.reduce(function(prev, curr) {
@@ -217,10 +255,10 @@
         
         function getPitchKey(pitch) {
             if (pitch === 0.9) return 'P0.9';
-            if (pitch === 1.25) return 'P1.25';
-            if (pitch === 1.9) return 'P1.9';
-            if (pitch === 2.6) return 'P2.6';
-            return 'P1.9';
+            if (pitch === 1.5) return 'P1.5';
+            if (pitch === 2.5) return 'P2.5';
+            if (pitch === 4.0) return 'P4.0';
+            return 'P2.5';
         }
         
         function getCostPerSqft(sqft, pitchKey) {
@@ -249,151 +287,205 @@
             return { w: Math.round(wMM / pitch), h: Math.round(hMM / pitch) };
         }
         
+        // Draw LED pixel grid overlay
+        function drawLEDGrid(ctx, w, h, pitch, intensity) {
+            // Calculate pixel size based on pitch and screen dimensions
+            var screenWidthMM = state.width * 304.8;
+            var pixelsAcross = screenWidthMM / pitch;
+            var pixelSize = w / pixelsAcross;
+            
+            // Only draw grid if pixels are large enough to see
+            if (pixelSize < 2) return;
+            
+            // Limit grid density for performance
+            var step = Math.max(1, Math.floor(pixelSize));
+            if (step < 3) step = Math.ceil(pixelSize * 2);
+            
+            ctx.save();
+            
+            // Draw subtle grid lines
+            ctx.strokeStyle = 'rgba(0,0,0,' + (intensity * 0.3) + ')';
+            ctx.lineWidth = Math.max(0.5, pixelSize * 0.08);
+            
+            // Vertical lines
+            for (var x = 0; x < w; x += step) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (var y = 0; y < h; y += step) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+            
+            // Add subtle RGB subpixel effect for larger pixel sizes
+            if (pixelSize > 6) {
+                ctx.globalCompositeOperation = 'overlay';
+                ctx.globalAlpha = intensity * 0.15;
+                
+                for (var px = 0; px < w; px += step) {
+                    for (var py = 0; py < h; py += step) {
+                        var subW = step / 3;
+                        ctx.fillStyle = 'rgba(255,0,0,0.3)';
+                        ctx.fillRect(px, py, subW, step);
+                        ctx.fillStyle = 'rgba(0,255,0,0.3)';
+                        ctx.fillRect(px + subW, py, subW, step);
+                        ctx.fillStyle = 'rgba(0,0,255,0.3)';
+                        ctx.fillRect(px + subW * 2, py, subW, step);
+                    }
+                }
+            }
+            
+            ctx.restore();
+        }
+        
+        // Draw image with LED effect
+        function drawPreview(img) {
+            var container = previewCanvas.parentElement;
+            var rect = container.getBoundingClientRect();
+            previewCanvas.width = rect.width * 2;
+            previewCanvas.height = rect.height * 2;
+            
+            var w = previewCanvas.width;
+            var h = previewCanvas.height;
+            var ctx = previewCtx;
+            
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, w, h);
+            
+            if (img) {
+                // Draw image scaled to fill
+                var imgAspect = img.width / img.height;
+                var canvasAspect = w / h;
+                var sx = 0, sy = 0, sw = img.width, sh = img.height;
+                
+                if (imgAspect > canvasAspect) {
+                    sw = img.height * canvasAspect;
+                    sx = (img.width - sw) / 2;
+                } else {
+                    sh = img.width / canvasAspect;
+                    sy = (img.height - sh) / 2;
+                }
+                
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+                
+                // Add slight brightness/contrast enhancement
+                ctx.globalCompositeOperation = 'overlay';
+                ctx.fillStyle = 'rgba(255,255,255,0.05)';
+                ctx.fillRect(0, 0, w, h);
+                ctx.globalCompositeOperation = 'source-over';
+            }
+            
+            // Draw LED grid based on pixel pitch
+            var gridIntensity = state.pixelPitch / 4; // More visible for larger pitches
+            drawLEDGrid(ctx, w, h, state.pixelPitch, gridIntensity);
+            
+            // Add subtle vignette for realism
+            var vignette = ctx.createRadialGradient(w/2, h/2, h*0.3, w/2, h/2, h*0.9);
+            vignette.addColorStop(0, 'transparent');
+            vignette.addColorStop(1, 'rgba(0,0,0,0.3)');
+            ctx.fillStyle = vignette;
+            ctx.fillRect(0, 0, w, h);
+        }
+        
+        // Generate high-quality texture for USDZ
+        function generateTexture(img, width, height, pitch) {
+            var texW = 2048;
+            var texH = Math.round(texW * (height / width));
+            
+            textureCanvas.width = texW;
+            textureCanvas.height = texH;
+            
+            var ctx = textureCtx;
+            
+            // Clear
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, texW, texH);
+            
+            if (img) {
+                // Draw image scaled to fill
+                var imgAspect = img.width / img.height;
+                var canvasAspect = texW / texH;
+                var sx = 0, sy = 0, sw = img.width, sh = img.height;
+                
+                if (imgAspect > canvasAspect) {
+                    sw = img.height * canvasAspect;
+                    sx = (img.width - sw) / 2;
+                } else {
+                    sh = img.width / canvasAspect;
+                    sy = (img.height - sh) / 2;
+                }
+                
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, texW, texH);
+                
+                // Enhance brightness for LED look
+                ctx.globalCompositeOperation = 'screen';
+                ctx.fillStyle = 'rgba(20,20,30,0.3)';
+                ctx.fillRect(0, 0, texW, texH);
+                ctx.globalCompositeOperation = 'source-over';
+            }
+            
+            // Add subtle LED grid for texture
+            var screenWidthMM = width * 304.8;
+            var pixelsAcross = screenWidthMM / pitch;
+            var pixelSize = texW / pixelsAcross;
+            
+            if (pixelSize >= 2) {
+                ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                ctx.lineWidth = Math.max(0.5, pixelSize * 0.05);
+                
+                var step = Math.max(2, Math.floor(pixelSize));
+                
+                for (var x = 0; x < texW; x += step) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, texH);
+                    ctx.stroke();
+                }
+                for (var y = 0; y < texH; y += step) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(texW, y);
+                    ctx.stroke();
+                }
+            }
+            
+            return textureCanvas.toDataURL('image/jpeg', 0.95);
+        }
+        
         function generateUSDA(widthM, heightM, depthM) {
             var hw = widthM / 2;
             var hh = heightM / 2;
             var hd = depthM / 2;
-            var fo = 0.03;
+            var bezel = 0.015; // Thin bezel
             
-            return '#usda 1.0\n(\n    defaultPrim = "LEDWall"\n    metersPerUnit = 1\n    upAxis = "Y"\n)\n\ndef Xform "LEDWall" (\n    assetInfo = {\n        string name = "LED Video Wall"\n    }\n    kind = "component"\n)\n{\n    def Mesh "Frame"\n    {\n        float3[] extent = [(' + (-(hw+fo)).toFixed(4) + ', ' + (-(hh+fo)).toFixed(4) + ', ' + (-hd).toFixed(4) + '), (' + (hw+fo).toFixed(4) + ', ' + (hh+fo).toFixed(4) + ', ' + hd.toFixed(4) + ')]\n        int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]\n        int[] faceVertexIndices = [0, 1, 3, 2, 4, 6, 7, 5, 0, 4, 5, 1, 2, 3, 7, 6, 0, 2, 6, 4, 1, 5, 7, 3]\n        point3f[] points = [\n            (' + (-(hw+fo)).toFixed(4) + ', ' + (-(hh+fo)).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (hw+fo).toFixed(4) + ', ' + (-(hh+fo)).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (-(hw+fo)).toFixed(4) + ', ' + (hh+fo).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (hw+fo).toFixed(4) + ', ' + (hh+fo).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (-(hw+fo)).toFixed(4) + ', ' + (-(hh+fo)).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (hw+fo).toFixed(4) + ', ' + (-(hh+fo)).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (-(hw+fo)).toFixed(4) + ', ' + (hh+fo).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (hw+fo).toFixed(4) + ', ' + (hh+fo).toFixed(4) + ', ' + (-hd).toFixed(4) + ')\n        ]\n        color3f[] primvars:displayColor = [(0.1, 0.1, 0.1)]\n        uniform token subdivisionScheme = "none"\n        rel material:binding = </LEDWall/Materials/FrameMaterial>\n    }\n    \n    def Mesh "Screen"\n    {\n        float3[] extent = [(' + (-hw).toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.003).toFixed(4) + '), (' + hw.toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.003).toFixed(4) + ')]\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw).toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.003).toFixed(4) + '),\n            (' + hw.toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.003).toFixed(4) + '),\n            (' + (-hw).toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.003).toFixed(4) + '),\n            (' + hw.toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.003).toFixed(4) + ')\n        ]\n        texCoord2f[] primvars:st = [(0, 0), (1, 0), (0, 1), (1, 1)] (\n            interpolation = "vertex"\n        )\n        int[] primvars:st:indices = [0, 1, 3, 2]\n        uniform token subdivisionScheme = "none"\n        rel material:binding = </LEDWall/Materials/ScreenMaterial>\n    }\n    \n    def Scope "Materials"\n    {\n        def Material "FrameMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/FrameMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0.1, 0.1, 0.1)\n                float inputs:roughness = 0.8\n                float inputs:metallic = 0.2\n                token outputs:surface\n            }\n        }\n        \n        def Material "ScreenMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/ScreenMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor.connect = </LEDWall/Materials/ScreenMaterial/Texture.outputs:rgb>\n                color3f inputs:emissiveColor.connect = </LEDWall/Materials/ScreenMaterial/Texture.outputs:rgb>\n                float inputs:roughness = 0.3\n                float inputs:metallic = 0.0\n                token outputs:surface\n            }\n            def Shader "Texture"\n            {\n                uniform token info:id = "UsdUVTexture"\n                asset inputs:file = @texture.png@\n                float2 inputs:st.connect = </LEDWall/Materials/ScreenMaterial/TexCoordReader.outputs:result>\n                token inputs:wrapS = "clamp"\n                token inputs:wrapT = "clamp"\n                float3 outputs:rgb\n            }\n            def Shader "TexCoordReader"\n            {\n                uniform token info:id = "UsdPrimvarReader_float2"\n                string inputs:varname = "st"\n                float2 outputs:result\n            }\n        }\n    }\n}\n';
-        }
-        
-        function generateTexture(genre, width, height) {
-            var aspectRatio = width / height;
-            var texW = 1024;
-            var texH = Math.round(texW / aspectRatio);
-            textureCanvas.width = texW;
-            textureCanvas.height = texH;
-            var ctx = textureCtx;
-            var w = texW, h = texH;
-            
-            if (genre === 'worship') {
-                var bg = ctx.createLinearGradient(0, 0, 0, h);
-                bg.addColorStop(0, '#1a0a30'); bg.addColorStop(0.5, '#2a1a50'); bg.addColorStop(1, '#4a3020');
-                ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
-                for (var i = 0; i < 8; i++) {
-                    ctx.globalAlpha = 0.15;
-                    var rayX = w * 0.5 + Math.sin(i*0.8) * w * 0.25;
-                    var rg = ctx.createLinearGradient(rayX, h, rayX, 0);
-                    rg.addColorStop(0, 'hsl(' + (280 + i*12) + ',70%,55%)'); rg.addColorStop(1, 'transparent');
-                    ctx.fillStyle = rg;
-                    ctx.beginPath(); ctx.moveTo(rayX - 50, h); ctx.lineTo(rayX - 15, 0); ctx.lineTo(rayX + 15, 0); ctx.lineTo(rayX + 50, h); ctx.fill();
-                }
-                ctx.globalAlpha = 1;
-                ctx.fillStyle = 'rgba(255,220,150,0.4)';
-                ctx.fillRect(w/2 - 12, h*0.45 - 100, 24, 200);
-                ctx.fillRect(w/2 - 70, h*0.45 - 55, 140, 24);
-            } else if (genre === 'corporate') {
-                var bg = ctx.createLinearGradient(0, 0, w, h);
-                bg.addColorStop(0, '#0a2540'); bg.addColorStop(1, '#0d47a1');
-                ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
-                ctx.strokeStyle = 'rgba(100,200,255,0.15)'; ctx.lineWidth = 1;
-                for (var gx = 0; gx < w; gx += 60) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke(); }
-                for (var gy = 0; gy < h; gy += 60) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke(); }
-                var bars = [0.6, 0.8, 0.5, 0.9, 0.7, 0.95, 0.75, 0.85];
-                for (var b = 0; b < 8; b++) {
-                    var bh = bars[b] * h * 0.5;
-                    var bgr = ctx.createLinearGradient(0, h*0.85 - bh, 0, h*0.85);
-                    bgr.addColorStop(0, '#00e5ff'); bgr.addColorStop(1, '#0066cc');
-                    ctx.fillStyle = bgr; ctx.fillRect(w*0.1 + b * (w*0.1), h*0.85 - bh, w*0.07, bh);
-                }
-                ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.06) + 'px Arial'; ctx.textAlign = 'center';
-                ctx.fillText('QUARTERLY REPORT', w/2, h*0.15);
-            } else if (genre === 'sports') {
-                var fg = ctx.createLinearGradient(0, 0, 0, h);
-                fg.addColorStop(0, '#1b5e20'); fg.addColorStop(0.5, '#2e7d32'); fg.addColorStop(1, '#1b5e20');
-                ctx.fillStyle = fg; ctx.fillRect(0, 0, w, h);
-                var mx = w * 0.05, my = h * 0.15, fw = w - 2 * mx, fh = h - 2 * my;
-                ctx.fillStyle = '#0033aa'; ctx.fillRect(mx, my, fw * 0.1, fh);
-                ctx.fillStyle = '#aa0000'; ctx.fillRect(w - mx - fw * 0.1, my, fw * 0.1, fh);
-                ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
-                for (var i = 0; i <= 10; i++) { var x = mx + fw * 0.1 + fw * 0.8 * i / 10; ctx.beginPath(); ctx.moveTo(x, my); ctx.lineTo(x, h - my); ctx.stroke(); }
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(mx, my, fw, fh);
-                ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(w*0.2, h*0.01, w*0.6, h*0.12);
-                ctx.strokeStyle = '#ffc107'; ctx.lineWidth = 3; ctx.strokeRect(w*0.2, h*0.01, w*0.6, h*0.12);
-                ctx.fillStyle = '#00ff00'; ctx.font = 'bold ' + Math.round(w*0.045) + 'px monospace'; ctx.textAlign = 'center';
-                ctx.fillText('24', w*0.32, h*0.105); ctx.fillText('17', w*0.68, h*0.105);
-            } else if (genre === 'concert') {
-                ctx.fillStyle = '#080010'; ctx.fillRect(0, 0, w, h);
-                var colors = ['#ff00ff','#00ffff','#ffff00','#ff0088','#00ff88','#8800ff'];
-                for (var i = 0; i < 10; i++) {
-                    ctx.globalAlpha = 0.25;
-                    var ang = Math.sin(i*0.5) * 0.5;
-                    var topX = w/2 + Math.tan(ang) * h;
-                    var lg = ctx.createLinearGradient(w/2, h, topX, 0);
-                    lg.addColorStop(0, colors[i % colors.length]); lg.addColorStop(1, 'transparent');
-                    ctx.fillStyle = lg;
-                    ctx.beginPath(); ctx.moveTo(w/2, h); ctx.lineTo(topX - w*0.06, 0); ctx.lineTo(topX + w*0.06, 0); ctx.closePath(); ctx.fill();
-                }
-                ctx.globalAlpha = 1;
-                ctx.fillStyle = '#000'; ctx.beginPath(); ctx.moveTo(0, h);
-                for (var cx = 0; cx <= w; cx += w*0.02) { ctx.lineTo(cx, h - (h*0.08 + Math.sin(cx*0.02) * h*0.03)); }
-                ctx.lineTo(w, h); ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.12) + 'px Arial'; ctx.textAlign = 'center';
-                ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 30; ctx.fillText('LIVE', w/2, h*0.4); ctx.shadowBlur = 0;
-            } else if (genre === 'retail') {
-                var rg = ctx.createLinearGradient(0, 0, w, h);
-                rg.addColorStop(0, '#e91e63'); rg.addColorStop(0.5, '#9c27b0'); rg.addColorStop(1, '#673ab7');
-                ctx.fillStyle = rg; ctx.fillRect(0, 0, w, h);
-                ctx.fillStyle = '#d32f2f';
-                ctx.beginPath(); ctx.moveTo(w*0.15, h*0.35); ctx.lineTo(w*0.85, h*0.35); ctx.lineTo(w*0.88, h*0.5); ctx.lineTo(w*0.85, h*0.65); ctx.lineTo(w*0.15, h*0.65); ctx.lineTo(w*0.12, h*0.5); ctx.closePath(); ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.14) + 'px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText('SALE', w/2, h*0.5);
-                ctx.textBaseline = 'alphabetic'; ctx.font = 'bold ' + Math.round(w*0.045) + 'px Arial';
-                ctx.fillText('UP TO 50% OFF', w/2, h*0.82);
-            } else if (genre === 'cinema') {
-                ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
-                var lbH = h * 0.12, viewH = h - lbH * 2;
-                var sky = ctx.createLinearGradient(0, lbH, 0, lbH + viewH * 0.6);
-                sky.addColorStop(0, '#1a1a3a'); sky.addColorStop(1, '#8b4513');
-                ctx.fillStyle = sky; ctx.fillRect(0, lbH, w, viewH * 0.6);
-                var sunGlow = ctx.createRadialGradient(w*0.7, lbH + viewH*0.3, 0, w*0.7, lbH + viewH*0.3, w*0.15);
-                sunGlow.addColorStop(0, 'rgba(255,200,100,1)'); sunGlow.addColorStop(0.4, 'rgba(255,150,50,0.5)'); sunGlow.addColorStop(1, 'transparent');
-                ctx.fillStyle = sunGlow; ctx.fillRect(0, lbH, w, viewH);
-                ctx.fillStyle = '#1a1a2a'; ctx.beginPath(); ctx.moveTo(0, lbH + viewH * 0.6);
-                ctx.lineTo(w*0.2, lbH + viewH * 0.4); ctx.lineTo(w*0.4, lbH + viewH * 0.55); ctx.lineTo(w*0.6, lbH + viewH * 0.35);
-                ctx.lineTo(w*0.8, lbH + viewH * 0.5); ctx.lineTo(w, lbH + viewH * 0.45); ctx.lineTo(w, lbH + viewH); ctx.lineTo(0, lbH + viewH); ctx.fill();
-                ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, lbH); ctx.fillRect(0, h - lbH, w, lbH);
-            } else {
-                var sky = ctx.createLinearGradient(0, 0, 0, h * 0.7);
-                sky.addColorStop(0, '#0a0a20'); sky.addColorStop(0.5, '#1a3a4a'); sky.addColorStop(1, '#2a4a3a');
-                ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
-                for (var a = 0; a < 5; a++) {
-                    ctx.globalAlpha = 0.35;
-                    var ag = ctx.createLinearGradient(0, h*0.1, 0, h*0.55);
-                    ag.addColorStop(0, 'transparent'); ag.addColorStop(0.3, 'hsl(' + (120 + a*25) + ',80%,50%)');
-                    ag.addColorStop(0.7, 'hsl(' + (180 + a*20) + ',70%,40%)'); ag.addColorStop(1, 'transparent');
-                    ctx.fillStyle = ag; ctx.beginPath(); ctx.moveTo(0, h*0.15);
-                    for (var ax = 0; ax <= w; ax += 15) { ctx.lineTo(ax, h*0.28 + Math.sin(ax*0.012 + a*0.8) * h*0.08); }
-                    ctx.lineTo(w, h*0.55); ctx.lineTo(0, h*0.55); ctx.fill();
-                }
-                ctx.globalAlpha = 1;
-                ctx.fillStyle = '#1a1a2e'; ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(0, h*0.72);
-                ctx.lineTo(w*0.12, h*0.52); ctx.lineTo(w*0.28, h*0.68); ctx.lineTo(w*0.48, h*0.38);
-                ctx.lineTo(w*0.68, h*0.58); ctx.lineTo(w*0.85, h*0.42); ctx.lineTo(w, h*0.58); ctx.lineTo(w, h); ctx.fill();
-                ctx.fillStyle = 'rgba(255,255,255,0.6)';
-                ctx.beginPath(); ctx.moveTo(w*0.48, h*0.38); ctx.lineTo(w*0.42, h*0.50); ctx.lineTo(w*0.54, h*0.50); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(w*0.85, h*0.42); ctx.lineTo(w*0.79, h*0.52); ctx.lineTo(w*0.91, h*0.52); ctx.fill();
-                var lake = ctx.createLinearGradient(0, h*0.82, 0, h);
-                lake.addColorStop(0, 'rgba(20,50,70,0.9)'); lake.addColorStop(1, 'rgba(10,30,50,0.95)');
-                ctx.fillStyle = lake; ctx.fillRect(0, h*0.82, w, h*0.18);
-            }
-            return textureCanvas.toDataURL('image/png');
+            return '#usda 1.0\n(\n    defaultPrim = "LEDWall"\n    metersPerUnit = 1\n    upAxis = "Y"\n)\n\ndef Xform "LEDWall" (\n    assetInfo = {\n        string name = "LED Video Wall"\n    }\n    kind = "component"\n)\n{\n    def Mesh "Cabinet"\n    {\n        int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]\n        int[] faceVertexIndices = [0, 1, 3, 2, 4, 6, 7, 5, 0, 4, 5, 1, 2, 3, 7, 6, 0, 2, 6, 4, 1, 5, 7, 3]\n        point3f[] points = [\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + (-hd).toFixed(4) + ')\n        ]\n        rel material:binding = </LEDWall/Materials/CabinetMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    def Mesh "Screen"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw).toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.001).toFixed(4) + '),\n            (' + hw.toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.001).toFixed(4) + '),\n            (' + (-hw).toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.001).toFixed(4) + '),\n            (' + hw.toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.001).toFixed(4) + ')\n        ]\n        texCoord2f[] primvars:st = [(0, 0), (1, 0), (0, 1), (1, 1)] (\n            interpolation = "vertex"\n        )\n        int[] primvars:st:indices = [0, 1, 3, 2]\n        rel material:binding = </LEDWall/Materials/ScreenMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    def Scope "Materials"\n    {\n        def Material "CabinetMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/CabinetMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0.02, 0.02, 0.02)\n                float inputs:roughness = 0.4\n                float inputs:metallic = 0.8\n                token outputs:surface\n            }\n        }\n        \n        def Material "ScreenMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/ScreenMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0.0, 0.0, 0.0)\n                color3f inputs:emissiveColor.connect = </LEDWall/Materials/ScreenMaterial/Texture.outputs:rgb>\n                float inputs:roughness = 0.1\n                float inputs:metallic = 0.0\n                token outputs:surface\n            }\n            def Shader "Texture"\n            {\n                uniform token info:id = "UsdUVTexture"\n                asset inputs:file = @texture.jpg@\n                float2 inputs:st.connect = </LEDWall/Materials/ScreenMaterial/TexCoordReader.outputs:result>\n                token inputs:wrapS = "clamp"\n                token inputs:wrapT = "clamp"\n                float3 outputs:rgb\n            }\n            def Shader "TexCoordReader"\n            {\n                uniform token info:id = "UsdPrimvarReader_float2"\n                string inputs:varname = "st"\n                float2 outputs:result\n            }\n        }\n    }\n}\n';
         }
         
         async function generateUSDZ() {
             var widthM = state.width * FT_TO_M;
             var heightM = state.height * FT_TO_M;
-            var depthM = 0.08;
+            var depthM = 0.06;
+            
+            var img = loadedImages[state.genre] || null;
+            
             var usdaContent = generateUSDA(widthM, heightM, depthM);
-            var textureDataUrl = generateTexture(state.genre, state.width, state.height);
+            var textureDataUrl = generateTexture(img, state.width, state.height, state.pixelPitch);
             var textureBase64 = textureDataUrl.split(',')[1];
             var textureBytes = Uint8Array.from(atob(textureBase64), function(c) { return c.charCodeAt(0); });
+            
             var zip = new JSZip();
             zip.file('model.usda', usdaContent);
-            zip.file('texture.png', textureBytes);
+            zip.file('texture.jpg', textureBytes);
+            
             var arrayBuffer = await zip.generateAsync({type: 'arraybuffer', compression: 'STORE'});
             var blob = new Blob([arrayBuffer], {type: 'model/vnd.usdz+zip'});
+            
             if (currentUsdzUrl) URL.revokeObjectURL(currentUsdzUrl);
             currentUsdzUrl = URL.createObjectURL(blob);
             return currentUsdzUrl + '#.usdz';
@@ -402,11 +494,13 @@
         async function updateUI() {
             document.getElementById('widthValue').textContent = state.width + ' ft';
             document.getElementById('heightValue').textContent = state.height + ' ft';
+            
             var price = calculateDisplayPrice(state.width, state.height, state.pixelPitch);
             var key = getPitchKey(state.pixelPitch);
             document.getElementById('priceDisplay').textContent = formatPrice(price);
             document.getElementById('pitchLabel').textContent = key + ' ' + PRICING[key].label;
             document.getElementById('viewingDistance').textContent = PRICING[key].minViewingFt + '+ feet';
+            
             var res = calcResolution(state.pixelPitch);
             var total = res.w * res.h;
             var sqft = Math.round(state.width * state.height);
@@ -415,10 +509,17 @@
             document.getElementById('areaSpec').textContent = sqft + ' sq ft';
             document.getElementById('genreDescription').textContent = GENRES[state.genre].description;
             document.getElementById('arDimensions').textContent = state.width + ' ft × ' + state.height + ' ft';
+            
+            // Update preview
+            var img = await loadImage(state.genre);
+            drawPreview(img);
+            
+            // Generate USDZ
             var arLink = document.getElementById('arLink');
             var arButton = document.getElementById('arButtonText');
             arLink.classList.add('loading');
             arButton.textContent = 'Generating...';
+            
             try {
                 var url = await generateUSDZ();
                 arLink.href = url;
@@ -431,209 +532,24 @@
             }
         }
         
-        function drawNature(ctx, w, h, t) {
-            var sky = ctx.createLinearGradient(0, 0, 0, h * 0.7);
-            sky.addColorStop(0, '#0a0a20'); sky.addColorStop(0.5, '#1a3a4a'); sky.addColorStop(1, '#2a4a3a');
-            ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
-            for (var a = 0; a < 5; a++) {
-                ctx.save(); ctx.globalAlpha = 0.3 + Math.sin(t*0.03 + a) * 0.15;
-                var ag = ctx.createLinearGradient(0, h*0.1, 0, h*0.55);
-                ag.addColorStop(0, 'transparent'); ag.addColorStop(0.3, 'hsl(' + (120 + a*25 + Math.sin(t*0.02)*20) + ',80%,50%)');
-                ag.addColorStop(0.7, 'hsl(' + (180 + a*20 + Math.sin(t*0.025)*15) + ',70%,40%)'); ag.addColorStop(1, 'transparent');
-                ctx.fillStyle = ag; ctx.beginPath(); ctx.moveTo(0, h*0.15);
-                for (var ax = 0; ax <= w; ax += 15) { ctx.lineTo(ax, h*0.28 + Math.sin(ax*0.012 + t*0.02 + a*0.8) * h*0.08); }
-                ctx.lineTo(w, h*0.55); ctx.lineTo(0, h*0.55); ctx.fill(); ctx.restore();
-            }
-            ctx.fillStyle = '#fff';
-            for (var st = 0; st < 100; st++) {
-                ctx.globalAlpha = 0.4 + Math.sin(t*0.1 + st) * 0.3;
-                ctx.beginPath(); ctx.arc((st * 193.7) % w, (st * 71.3) % (h * 0.55), 1 + (st % 3) * 0.5, 0, Math.PI*2); ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-            ctx.fillStyle = '#1a1a2e'; ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(0, h*0.72);
-            ctx.lineTo(w*0.12, h*0.52); ctx.lineTo(w*0.28, h*0.68); ctx.lineTo(w*0.48, h*0.38);
-            ctx.lineTo(w*0.68, h*0.58); ctx.lineTo(w*0.85, h*0.42); ctx.lineTo(w, h*0.58); ctx.lineTo(w, h); ctx.fill();
-            ctx.fillStyle = 'rgba(255,255,255,0.5)';
-            ctx.beginPath(); ctx.moveTo(w*0.48, h*0.38); ctx.lineTo(w*0.42, h*0.50); ctx.lineTo(w*0.54, h*0.50); ctx.fill();
-            ctx.beginPath(); ctx.moveTo(w*0.85, h*0.42); ctx.lineTo(w*0.79, h*0.52); ctx.lineTo(w*0.91, h*0.52); ctx.fill();
-            var lake = ctx.createLinearGradient(0, h*0.82, 0, h);
-            lake.addColorStop(0, 'rgba(20,50,70,0.9)'); lake.addColorStop(1, 'rgba(10,30,50,0.95)');
-            ctx.fillStyle = lake; ctx.fillRect(0, h*0.82, w, h*0.18);
-        }
-        
-        function drawWorship(ctx, w, h, t) {
-            var bg = ctx.createLinearGradient(0, 0, 0, h);
-            bg.addColorStop(0, '#1a0a30'); bg.addColorStop(0.5, '#2a1a50'); bg.addColorStop(1, '#4a3020');
-            ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
-            for (var i = 0; i < 8; i++) {
-                ctx.save(); ctx.globalAlpha = 0.12 + Math.sin(t*0.04 + i) * 0.08;
-                var rayX = w * 0.5 + Math.sin(t*0.02 + i*0.8) * w * 0.25;
-                var rg = ctx.createLinearGradient(rayX, h, rayX, 0);
-                rg.addColorStop(0, 'hsl(' + (280 + i*12) + ',70%,55%)'); rg.addColorStop(1, 'transparent');
-                ctx.fillStyle = rg; ctx.beginPath(); ctx.moveTo(rayX - 50, h);
-                ctx.lineTo(rayX - 15 + Math.sin(t*0.015)*20, 0); ctx.lineTo(rayX + 15 + Math.sin(t*0.015)*20, 0);
-                ctx.lineTo(rayX + 50, h); ctx.fill(); ctx.restore();
-            }
-            ctx.fillStyle = '#fff';
-            for (var s = 0; s < 60; s++) {
-                ctx.globalAlpha = 0.4 + Math.sin(t*0.12 + s) * 0.3;
-                ctx.beginPath(); ctx.arc((s * 137) % w, (s * 89) % (h*0.6), 1.2, 0, Math.PI*2); ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-            ctx.fillStyle = 'rgba(255,220,150,0.3)';
-            ctx.fillRect(w/2 - 10, h*0.45 - 90, 20, 180); ctx.fillRect(w/2 - 60, h*0.45 - 50, 120, 20);
-        }
-        
-        function drawCorporate(ctx, w, h, t) {
-            var bg = ctx.createLinearGradient(0, 0, w, h);
-            bg.addColorStop(0, '#0a2540'); bg.addColorStop(1, '#0d47a1');
-            ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
-            ctx.strokeStyle = 'rgba(100,200,255,0.15)'; ctx.lineWidth = 1;
-            var gridOff = (t * 0.5) % 60;
-            for (var gx = -60 + gridOff; gx < w + 60; gx += 60) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke(); }
-            for (var gy = 0; gy < h; gy += 60) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke(); }
-            for (var b = 0; b < 8; b++) {
-                var bh = 60 + Math.abs(Math.sin(t*0.03 + b*0.6)) * 140;
-                var bgr = ctx.createLinearGradient(0, h*0.85 - bh, 0, h*0.85);
-                bgr.addColorStop(0, '#00e5ff'); bgr.addColorStop(1, '#0066cc');
-                ctx.fillStyle = bgr; ctx.fillRect(w*0.1 + b * (w*0.1), h*0.85 - bh, w*0.07, bh);
-            }
-            ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.05) + 'px Arial'; ctx.textAlign = 'center';
-            ctx.fillText('QUARTERLY REPORT', w/2, h*0.15);
-        }
-        
-        function drawSports(ctx, w, h, t) {
-            var fg = ctx.createLinearGradient(0, 0, 0, h);
-            fg.addColorStop(0, '#1b5e20'); fg.addColorStop(0.5, '#2e7d32'); fg.addColorStop(1, '#1b5e20');
-            ctx.fillStyle = fg; ctx.fillRect(0, 0, w, h);
-            var mx = w * 0.05, my = h * 0.15, fw = w - 2 * mx, fh = h - 2 * my;
-            ctx.fillStyle = '#0033aa'; ctx.fillRect(mx, my, fw * 0.1, fh);
-            ctx.fillStyle = '#aa0000'; ctx.fillRect(w - mx - fw * 0.1, my, fw * 0.1, fh);
-            ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
-            for (var i = 0; i <= 10; i++) { var x = mx + fw * 0.1 + fw * 0.8 * i / 10; ctx.beginPath(); ctx.moveTo(x, my); ctx.lineTo(x, h - my); ctx.stroke(); }
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(mx, my, fw, fh);
-            ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.03) + 'px Arial'; ctx.textAlign = 'center';
-            var nums = ['10','20','30','40','50','40','30','20','10'];
-            for (var n = 0; n < nums.length; n++) {
-                var nx = mx + fw * 0.1 + fw * 0.8 * (n + 1) / 10;
-                ctx.fillText(nums[n], nx, my + fh * 0.12); ctx.fillText(nums[n], nx, h - my - fh * 0.05);
-            }
-            ctx.font = 'bold ' + Math.round(w*0.035) + 'px Arial';
-            ctx.fillText('HOME', mx + fw * 0.05, h/2); ctx.fillText('AWAY', w - mx - fw * 0.05, h/2);
-            var ballX = w * 0.4 + Math.sin(t * 0.03) * w * 0.2;
-            var ballY = h * 0.5 + Math.cos(t * 0.04) * h * 0.15;
-            ctx.save(); ctx.translate(ballX, ballY); ctx.rotate(Math.sin(t * 0.05) * 0.3);
-            ctx.fillStyle = '#654321'; ctx.beginPath(); ctx.ellipse(0, 0, w*0.025, w*0.015, 0, 0, Math.PI*2); ctx.fill();
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -w*0.012); ctx.lineTo(0, w*0.012); ctx.stroke();
-            ctx.restore();
-            ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(w*0.2, h*0.01, w*0.6, h*0.12);
-            ctx.strokeStyle = '#ffc107'; ctx.lineWidth = 3; ctx.strokeRect(w*0.2, h*0.01, w*0.6, h*0.12);
-            ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.025) + 'px Arial';
-            ctx.fillText('HOME', w*0.32, h*0.045); ctx.fillText('AWAY', w*0.68, h*0.045);
-            ctx.fillStyle = '#ffcc00'; ctx.fillText('Q4', w*0.5, h*0.045);
-            ctx.fillStyle = '#fff'; ctx.font = Math.round(w*0.022) + 'px Arial'; ctx.fillText('2:34', w*0.5, h*0.095);
-            ctx.fillStyle = '#00ff00'; ctx.font = 'bold ' + Math.round(w*0.04) + 'px monospace';
-            ctx.fillText('24', w*0.32, h*0.1); ctx.fillText('17', w*0.68, h*0.1);
-        }
-        
-        function drawConcert(ctx, w, h, t) {
-            ctx.fillStyle = '#080010'; ctx.fillRect(0, 0, w, h);
-            var colors = ['#ff00ff','#00ffff','#ffff00','#ff0088','#00ff88','#8800ff'];
-            for (var i = 0; i < 10; i++) {
-                ctx.save(); ctx.globalAlpha = 0.2 + Math.sin(t*0.06 + i*0.5) * 0.1;
-                var ang = Math.sin(t*0.025 + i*0.5) * 0.5;
-                var topX = w/2 + Math.tan(ang) * h;
-                var lg = ctx.createLinearGradient(w/2, h, topX, 0);
-                lg.addColorStop(0, colors[i % colors.length]); lg.addColorStop(1, 'transparent');
-                ctx.fillStyle = lg; ctx.beginPath(); ctx.moveTo(w/2, h);
-                ctx.lineTo(topX - w*0.06, 0); ctx.lineTo(topX + w*0.06, 0); ctx.closePath(); ctx.fill(); ctx.restore();
-            }
-            ctx.fillStyle = '#000'; ctx.beginPath(); ctx.moveTo(0, h);
-            for (var cx = 0; cx <= w; cx += w*0.02) { ctx.lineTo(cx, h - (h*0.08 + Math.sin(t*0.1 + cx*0.008) * h*0.03)); }
-            ctx.lineTo(w, h); ctx.fill();
-            ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.1) + 'px Arial'; ctx.textAlign = 'center';
-            ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 20 + Math.sin(t*0.1) * 10; ctx.fillText('LIVE', w/2, h*0.35); ctx.shadowBlur = 0;
-        }
-        
-        function drawRetail(ctx, w, h, t) {
-            var hue = (t * 0.5) % 360;
-            var rg = ctx.createLinearGradient(0, 0, w, h);
-            rg.addColorStop(0, 'hsl(' + hue + ',80%,50%)'); rg.addColorStop(0.5, 'hsl(' + ((hue+40)%360) + ',70%,45%)');
-            rg.addColorStop(1, 'hsl(' + ((hue+80)%360) + ',75%,40%)');
-            ctx.fillStyle = rg; ctx.fillRect(0, 0, w, h);
-            ctx.fillStyle = 'rgba(255,255,255,0.8)';
-            for (var sp = 0; sp < 40; sp++) {
-                var spx = (Math.sin(t*0.015 + sp*0.5) * 0.4 + 0.5) * w;
-                var spy = ((sp * 0.06 + t*0.002) % 1.1) * h;
-                ctx.beginPath(); ctx.arc(spx, spy, 3 + Math.sin(t*0.08 + sp) * 2, 0, Math.PI*2); ctx.fill();
-            }
-            ctx.save(); ctx.translate(w/2, h/2);
-            var scale = 1 + Math.sin(t*0.08) * 0.03; ctx.scale(scale, scale);
-            ctx.fillStyle = '#d32f2f'; ctx.beginPath(); ctx.moveTo(-w*0.35, 0);
-            ctx.lineTo(-w*0.32, -h*0.15); ctx.lineTo(w*0.32, -h*0.15); ctx.lineTo(w*0.35, 0);
-            ctx.lineTo(w*0.32, h*0.15); ctx.lineTo(-w*0.32, h*0.15); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.12) + 'px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText('SALE', 0, 0); ctx.restore();
-            ctx.textBaseline = 'alphabetic'; ctx.font = 'bold ' + Math.round(w*0.04) + 'px Arial'; ctx.fillStyle = '#fff';
-            ctx.fillText('UP TO 50% OFF', w/2, h*0.82);
-        }
-        
-        function drawCinema(ctx, w, h, t) {
-            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
-            var lbH = h * 0.12, viewH = h - lbH * 2;
-            var sky = ctx.createLinearGradient(0, lbH, 0, lbH + viewH * 0.6);
-            sky.addColorStop(0, '#1a1a3a'); sky.addColorStop(1, 'hsl(' + (30 + Math.sin(t*0.01)*10) + ',60%,35%)');
-            ctx.fillStyle = sky; ctx.fillRect(0, lbH, w, viewH * 0.6);
-            var sunY = lbH + viewH*0.3 + Math.sin(t*0.008) * 10;
-            var sunGlow = ctx.createRadialGradient(w*0.7, sunY, 0, w*0.7, sunY, w*0.15);
-            sunGlow.addColorStop(0, 'rgba(255,200,100,1)'); sunGlow.addColorStop(0.4, 'rgba(255,150,50,0.5)'); sunGlow.addColorStop(1, 'transparent');
-            ctx.fillStyle = sunGlow; ctx.fillRect(0, lbH, w, viewH);
-            ctx.fillStyle = '#1a1a2a'; ctx.beginPath(); ctx.moveTo(0, lbH + viewH * 0.6);
-            ctx.lineTo(w*0.2, lbH + viewH * 0.4); ctx.lineTo(w*0.4, lbH + viewH * 0.55); ctx.lineTo(w*0.6, lbH + viewH * 0.35);
-            ctx.lineTo(w*0.8, lbH + viewH * 0.5); ctx.lineTo(w, lbH + viewH * 0.45); ctx.lineTo(w, lbH + viewH); ctx.lineTo(0, lbH + viewH); ctx.fill();
-            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, lbH); ctx.fillRect(0, h - lbH, w, lbH);
-        }
-        
-        function drawContent(ctx, w, h, t) {
-            ctx.clearRect(0, 0, w, h);
-            switch(state.genre) {
-                case 'worship': drawWorship(ctx, w, h, t); break;
-                case 'corporate': drawCorporate(ctx, w, h, t); break;
-                case 'sports': drawSports(ctx, w, h, t); break;
-                case 'cinema': drawCinema(ctx, w, h, t); break;
-                case 'concert': drawConcert(ctx, w, h, t); break;
-                case 'retail': drawRetail(ctx, w, h, t); break;
-                default: drawNature(ctx, w, h, t);
-            }
-        }
-        
-        function resizePreviewCanvas() {
-            var container = previewCanvas.parentElement;
-            var rect = container.getBoundingClientRect();
-            previewCanvas.width = rect.width * 2;
-            previewCanvas.height = rect.height * 2;
-        }
-        
-        function animatePreview() {
-            frameCount++;
-            drawContent(previewCtx, previewCanvas.width, previewCanvas.height, frameCount);
-            requestAnimationFrame(animatePreview);
-        }
-        
+        // Debounce updates
         var updateTimeout = null;
         function debouncedUpdate() {
             if (updateTimeout) clearTimeout(updateTimeout);
-            updateTimeout = setTimeout(updateUI, 300);
+            updateTimeout = setTimeout(updateUI, 200);
         }
         
+        // Event handlers
         document.querySelectorAll('[data-shape]').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('[data-shape]').forEach(function(b) { b.classList.remove('active'); });
-                btn.classList.add('active'); state.shape = btn.dataset.shape;
+                btn.classList.add('active');
+                state.shape = btn.dataset.shape;
                 var widthSlider = document.getElementById('widthSlider');
                 var heightSlider = document.getElementById('heightSlider');
-                if (state.shape === 'custom') { heightSlider.disabled = false; }
-                else {
+                if (state.shape === 'custom') {
+                    heightSlider.disabled = false;
+                } else {
                     heightSlider.disabled = true;
                     state.width = WIDTH_INCREMENTS[parseInt(widthSlider.value)];
                     if (state.shape === 'rectangle') state.height = findBestHeightForRatio(state.width, 16/9);
@@ -648,14 +564,18 @@
         document.querySelectorAll('[data-pitch]').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('[data-pitch]').forEach(function(b) { b.classList.remove('active'); });
-                btn.classList.add('active'); state.pixelPitch = parseFloat(btn.dataset.pitch); debouncedUpdate();
+                btn.classList.add('active');
+                state.pixelPitch = parseFloat(btn.dataset.pitch);
+                debouncedUpdate();
             });
         });
         
         document.querySelectorAll('[data-genre]').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('[data-genre]').forEach(function(b) { b.classList.remove('active'); });
-                btn.classList.add('active'); state.genre = btn.dataset.genre; debouncedUpdate();
+                btn.classList.add('active');
+                state.genre = btn.dataset.genre;
+                debouncedUpdate();
             });
         });
         
@@ -672,13 +592,19 @@
         });
         
         document.getElementById('heightSlider').addEventListener('input', function(e) {
-            if (state.shape === 'custom') { state.height = HEIGHT_INCREMENTS[parseInt(e.target.value)]; debouncedUpdate(); }
+            if (state.shape === 'custom') {
+                state.height = HEIGHT_INCREMENTS[parseInt(e.target.value)];
+                debouncedUpdate();
+            }
         });
         
-        resizePreviewCanvas();
-        window.addEventListener('resize', resizePreviewCanvas);
+        // Initial load
+        window.addEventListener('resize', function() {
+            var img = loadedImages[state.genre];
+            if (img) drawPreview(img);
+        });
+        
         updateUI();
-        animatePreview();
     </script>
 </body>
 </html>
