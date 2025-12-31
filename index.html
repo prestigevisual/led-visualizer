@@ -28,7 +28,7 @@
         .preview-wrapper { display: flex; justify-content: center; align-items: center; margin-bottom: 15px; }
         .preview-frame { background: #0a0a0a; padding: 6px; border-radius: 3px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
         .preview-container { position: relative; overflow: hidden; background: #000; }
-        #previewImage { display: block; width: 100%; height: 100%; object-fit: cover; }
+        #previewCanvas { display: block; width: 100%; height: 100%; }
         .preview-label { text-align: center; font-size: 12px; color: rgba(255,255,255,0.5); }
         
         .ar-button { display: flex; width: 100%; padding: 18px; font-size: 18px; font-weight: 700; color: #000; background: linear-gradient(135deg, #00ff88, #00d4ff); border: none; border-radius: 50px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; align-items: center; justify-content: center; gap: 10px; text-decoration: none; }
@@ -62,7 +62,6 @@
         .option-btn .pitch-label { font-size: 8px; color: rgba(255,255,255,0.4); margin-top: 2px; }
         .option-btn.active .pitch-label { color: rgba(255,255,255,0.7); }
         .option-btn .pitch-res { font-size: 11px; color: #00ff88; font-weight: 700; margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); }
-        .option-btn.active .pitch-res { color: #00ff88; }
         
         .slider-group { margin-bottom: 15px; }
         .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -84,6 +83,8 @@
         
         .disclaimer { font-size: 10px; color: rgba(255,255,255,0.4); text-align: center; line-height: 1.5; padding: 15px; }
         
+        #textureCanvas { display: none; }
+        
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
@@ -98,7 +99,7 @@
             <div class="preview-wrapper">
                 <div class="preview-frame">
                     <div class="preview-container" id="previewContainer">
-                        <img id="previewImage" src="images/sports.jpg" alt="LED Wall Preview">
+                        <canvas id="previewCanvas"></canvas>
                     </div>
                 </div>
             </div>
@@ -205,6 +206,8 @@
             Pricing is an estimate based on selected dimensions. Actual panel configurations and final pricing confirmed during consultation.
         </div>
     </div>
+    
+    <canvas id="textureCanvas"></canvas>
 
     <script type="module">
         import * as THREE from 'three';
@@ -219,10 +222,26 @@
         };
         
         const GENRES = {
-            worship: { description: 'Churches & Houses of Worship' },
-            corporate: { description: 'Lobbies & Boardrooms' },
-            sports: { description: 'Sports Bars & Watch Parties' },
-            concert: { description: 'Live Events & Nightclubs' }
+            worship: { 
+                description: 'Churches & Houses of Worship',
+                colors: ['#1a0a2e', '#4a1c6b', '#9b4dca', '#d4a5ff'],
+                text: 'WORSHIP'
+            },
+            corporate: { 
+                description: 'Lobbies & Boardrooms',
+                colors: ['#0a1628', '#1a365d', '#2c5282', '#4299e1'],
+                text: 'CORPORATE'
+            },
+            sports: { 
+                description: 'Sports Bars & Watch Parties',
+                colors: ['#1a2f0a', '#2d5016', '#48842a', '#6fbe44'],
+                text: 'SPORTS'
+            },
+            concert: { 
+                description: 'Live Events & Nightclubs',
+                colors: ['#2a0a0a', '#6b1a1a', '#ca4d4d', '#ff6b6b'],
+                text: 'CONCERT'
+            }
         };
         
         const WIDTH_INCREMENTS = [3.9, 5.9, 7.9, 9.8, 11.8, 13.8, 15.7, 17.7, 19.7, 21.7, 23.6, 25.6, 27.6, 29.5, 31.5, 33.5, 35.4, 37.4, 39.4];
@@ -249,29 +268,48 @@
         };
         
         // ===================== ELEMENTS =====================
-        const previewImage = document.getElementById('previewImage');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const previewCtx = previewCanvas.getContext('2d');
         const previewContainer = document.getElementById('previewContainer');
+        const textureCanvas = document.getElementById('textureCanvas');
+        const textureCtx = textureCanvas.getContext('2d');
         
-        // ===================== THREE.JS TEXTURE LOADER =====================
-        const textureLoader = new THREE.TextureLoader();
-        
-        function loadTextureAsync(url) {
-            return new Promise((resolve, reject) => {
-                textureLoader.load(
-                    url,
-                    (texture) => {
-                        console.log('Texture loaded successfully:', url);
-                        resolve(texture);
-                    },
-                    (progress) => {
-                        console.log('Loading texture...', progress);
-                    },
-                    (error) => {
-                        console.error('Texture load error:', error);
-                        reject(error);
-                    }
-                );
-            });
+        // ===================== DRAW CONTENT TO CANVAS =====================
+        function drawGenreContent(ctx, width, height, genre) {
+            const g = GENRES[genre];
+            
+            // Create gradient background
+            const gradient = ctx.createLinearGradient(0, 0, width, height);
+            gradient.addColorStop(0, g.colors[0]);
+            gradient.addColorStop(0.33, g.colors[1]);
+            gradient.addColorStop(0.66, g.colors[2]);
+            gradient.addColorStop(1, g.colors[3]);
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Add some visual elements
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            for (let i = 0; i < 20; i++) {
+                const x = Math.random() * width;
+                const y = Math.random() * height;
+                const r = Math.random() * 100 + 20;
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Draw text
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.font = `bold ${height * 0.15}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(g.text, width / 2, height / 2);
+            
+            // Add subtitle
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.font = `${height * 0.05}px Arial`;
+            ctx.fillText('LED VIDEO WALL PREVIEW', width / 2, height / 2 + height * 0.15);
         }
         
         // ===================== HELPERS =====================
@@ -337,13 +375,9 @@
         
         function getResolutionLabel(horizontalPixels) {
             if (horizontalPixels >= 7680) return '8K';
-            if (horizontalPixels >= 6144) return '6K+';
-            if (horizontalPixels >= 5120) return '5K+';
             if (horizontalPixels >= 4096) return '4K+';
             if (horizontalPixels >= 3840) return '4K';
-            if (horizontalPixels >= 3072) return '3K+';
             if (horizontalPixels >= 2560) return '3K';
-            if (horizontalPixels >= 2048) return '2K+';
             if (horizontalPixels >= 1920) return '2K';
             if (horizontalPixels >= 1280) return 'HD+';
             return 'HD';
@@ -358,6 +392,13 @@
             if (h > 220) { h = 220; w = Math.round(h * aspect); }
             previewContainer.style.width = w + 'px';
             previewContainer.style.height = h + 'px';
+            previewCanvas.width = w * 2;
+            previewCanvas.height = h * 2;
+            previewCanvas.style.width = w + 'px';
+            previewCanvas.style.height = h + 'px';
+            
+            // Draw preview content
+            drawGenreContent(previewCtx, previewCanvas.width, previewCanvas.height, state.genre);
         }
         
         function updatePitchResolutions() {
@@ -390,7 +431,6 @@
             document.getElementById('arDimensions').textContent = state.width + ' ft × ' + state.height + ' ft';
             
             updatePitchResolutions();
-            previewImage.src = IMAGE_PATHS[state.genre];
             updatePreviewSize();
         }
         
@@ -399,21 +439,41 @@
             const btn = document.getElementById('generateBtn');
             btn.disabled = true;
             btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" stroke-dasharray="30 60"/></svg> Generating...';
-            showStatus('Loading texture...', 'info');
+            showStatus('Creating texture...', 'info');
             
             try {
-                // Load texture directly using THREE.TextureLoader
-                const imagePath = IMAGE_PATHS[state.genre];
-                const texture = await loadTextureAsync(imagePath);
+                // Create texture canvas with power-of-2 dimensions
+                const texWidth = 1024;
+                const texHeight = 512;
+                textureCanvas.width = texWidth;
+                textureCanvas.height = texHeight;
                 
-                // Configure texture for USDZ - flipY should be false for USDZ
-                texture.flipY = false;
-                texture.colorSpace = THREE.SRGBColorSpace;
-                texture.needsUpdate = true;
+                // Draw content to texture canvas
+                drawGenreContent(textureCtx, texWidth, texHeight, state.genre);
                 
-                console.log('Texture configured:', texture.image.width, 'x', texture.image.height);
+                console.log('Texture canvas drawn:', texWidth, 'x', texHeight);
+                
+                // Convert canvas to data URL
+                const dataURL = textureCanvas.toDataURL('image/png');
+                console.log('Data URL created, length:', dataURL.length);
+                
+                // Load data URL as image
+                const img = new Image();
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = dataURL;
+                });
+                
+                console.log('Image loaded from data URL:', img.width, 'x', img.height);
                 
                 showStatus('Building 3D model...', 'info');
+                
+                // Create Three.js texture from image
+                const texture = new THREE.Texture(img);
+                texture.flipY = false;  // USDZ expects flipY = false
+                texture.colorSpace = THREE.SRGBColorSpace;
+                texture.needsUpdate = true;
                 
                 // Create scene
                 const scene = new THREE.Scene();
@@ -422,13 +482,12 @@
                 const heightM = state.height * FT_TO_M;
                 const depth = 0.08;
                 
-                // Screen with MeshStandardMaterial (required for USDZ)
+                // Screen with MeshStandardMaterial (REQUIRED for USDZ)
                 const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
                 const screenMat = new THREE.MeshStandardMaterial({ 
                     map: texture,
-                    roughness: 0.4,
-                    metalness: 0.0,
-                    side: THREE.FrontSide
+                    roughness: 0.3,
+                    metalness: 0.0
                 });
                 const screen = new THREE.Mesh(screenGeo, screenMat);
                 screen.position.z = depth / 2 + 0.003;
@@ -449,10 +508,7 @@
                 scene.add(group);
                 
                 // Lighting
-                scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-                const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-                dirLight.position.set(0, 2, 5);
-                scene.add(dirLight);
+                scene.add(new THREE.AmbientLight(0xffffff, 2));
                 
                 showStatus('Exporting to USDZ...', 'info');
                 
@@ -468,9 +524,8 @@
                 const arLink = document.getElementById('arLink');
                 arLink.href = url;
                 
-                // Set AR image
                 const arImg = document.getElementById('arImage');
-                arImg.src = imagePath;
+                arImg.src = dataURL;
                 
                 showStatus('Opening AR viewer...', 'success');
                 
