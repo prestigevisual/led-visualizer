@@ -17,7 +17,7 @@
         .logo-subtitle { font-size: 12px; color: rgba(0,200,255,0.7); text-transform: uppercase; letter-spacing: 6px; margin-top: 5px; }
         
         .preview-section { background: rgba(0,0,0,0.4); border-radius: 20px; padding: 20px; margin-bottom: 20px; border: 1px solid rgba(0,200,255,0.2); }
-        .preview-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 15px; }
+        .preview-container { position: relative; width: 100%; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 15px; }
         #previewImage { width: 100%; height: 100%; object-fit: cover; display: block; }
         .preview-label { text-align: center; font-size: 12px; color: rgba(255,255,255,0.5); }
         
@@ -74,10 +74,10 @@
         </div>
         
         <div class="preview-section">
-            <div class="preview-container">
+            <div class="preview-container" id="previewContainer">
                 <img id="previewImage" src="images/sports.jpg" alt="Preview">
             </div>
-            <div class="preview-label">HD Preview - Select content type below</div>
+            <div class="preview-label">HD Preview - Cropped to wall dimensions</div>
         </div>
         
         <a id="arLink" rel="ar" href="#" class="ar-button">
@@ -162,7 +162,6 @@
     <canvas id="textureCanvas" style="display:none;"></canvas>
 
     <script>
-        // Local images - these must be uploaded to your repo's /images folder
         var IMAGE_PATHS = {
             sports: 'images/sports.jpg',
             worship: 'images/worship.jpg',
@@ -197,6 +196,7 @@
         var textureCanvas = document.getElementById('textureCanvas');
         var textureCtx = textureCanvas.getContext('2d');
         var previewImg = document.getElementById('previewImage');
+        var previewContainer = document.getElementById('previewContainer');
         
         function loadImage(genre) {
             return new Promise(function(resolve) {
@@ -271,9 +271,12 @@
             return { w: Math.round(wMM / pitch), h: Math.round(hMM / pitch) };
         }
         
+        // Generate texture cropped to exact wall aspect ratio
         function generateTexture(img, width, height) {
+            var aspectRatio = width / height;
             var texW = 2048;
-            var texH = Math.round(texW * (height / width));
+            var texH = Math.round(texW / aspectRatio);
+            
             textureCanvas.width = texW;
             textureCanvas.height = texH;
             var ctx = textureCtx;
@@ -283,36 +286,43 @@
             
             if (img) {
                 var imgAspect = img.width / img.height;
-                var canvasAspect = texW / texH;
-                var sx = 0, sy = 0, sw = img.width, sh = img.height;
+                var targetAspect = texW / texH;
+                var sx, sy, sw, sh;
                 
-                if (imgAspect > canvasAspect) {
-                    sw = img.height * canvasAspect;
+                // Crop image to match wall aspect ratio (cover mode)
+                if (imgAspect > targetAspect) {
+                    // Image is wider - crop sides
+                    sh = img.height;
+                    sw = img.height * targetAspect;
                     sx = (img.width - sw) / 2;
+                    sy = 0;
                 } else {
-                    sh = img.width / canvasAspect;
+                    // Image is taller - crop top/bottom
+                    sw = img.width;
+                    sh = img.width / targetAspect;
+                    sx = 0;
                     sy = (img.height - sh) / 2;
                 }
                 
                 ctx.drawImage(img, sx, sy, sw, sh, 0, 0, texW, texH);
             }
             
-            return textureCanvas.toDataURL('image/jpeg', 0.92);
+            return textureCanvas.toDataURL('image/jpeg', 0.95);
         }
         
+        // Simple flat screen - no frame, no reflections
         function generateUSDA(widthM, heightM, depthM) {
             var hw = widthM / 2;
             var hh = heightM / 2;
-            var hd = depthM / 2;
-            var bezel = 0.012;
+            var d = depthM;
             
-            return '#usda 1.0\n(\n    defaultPrim = "LEDWall"\n    metersPerUnit = 1\n    upAxis = "Y"\n)\n\ndef Xform "LEDWall" (\n    assetInfo = {\n        string name = "LED Video Wall"\n    }\n    kind = "component"\n)\n{\n    def Mesh "Cabinet"\n    {\n        int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]\n        int[] faceVertexIndices = [0, 1, 3, 2, 4, 6, 7, 5, 0, 4, 5, 1, 2, 3, 7, 6, 0, 2, 6, 4, 1, 5, 7, 3]\n        point3f[] points = [\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + (-hd).toFixed(4) + ')\n        ]\n        rel material:binding = </LEDWall/Materials/CabinetMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    def Mesh "Screen"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw).toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.001).toFixed(4) + '),\n            (' + hw.toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.001).toFixed(4) + '),\n            (' + (-hw).toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.001).toFixed(4) + '),\n            (' + hw.toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.001).toFixed(4) + ')\n        ]\n        texCoord2f[] primvars:st = [(0, 0), (1, 0), (0, 1), (1, 1)] (\n            interpolation = "vertex"\n        )\n        int[] primvars:st:indices = [0, 1, 3, 2]\n        rel material:binding = </LEDWall/Materials/ScreenMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    def Scope "Materials"\n    {\n        def Material "CabinetMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/CabinetMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0.01, 0.01, 0.01)\n                float inputs:roughness = 0.3\n                float inputs:metallic = 0.9\n                token outputs:surface\n            }\n        }\n        \n        def Material "ScreenMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/ScreenMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0.0, 0.0, 0.0)\n                color3f inputs:emissiveColor.connect = </LEDWall/Materials/ScreenMaterial/Texture.outputs:rgb>\n                float inputs:roughness = 0.05\n                float inputs:metallic = 0.0\n                token outputs:surface\n            }\n            def Shader "Texture"\n            {\n                uniform token info:id = "UsdUVTexture"\n                asset inputs:file = @texture.jpg@\n                float2 inputs:st.connect = </LEDWall/Materials/ScreenMaterial/TexCoordReader.outputs:result>\n                token inputs:wrapS = "clamp"\n                token inputs:wrapT = "clamp"\n                float3 outputs:rgb\n            }\n            def Shader "TexCoordReader"\n            {\n                uniform token info:id = "UsdPrimvarReader_float2"\n                string inputs:varname = "st"\n                float2 outputs:result\n            }\n        }\n    }\n}\n';
+            return '#usda 1.0\n(\n    defaultPrim = "LEDScreen"\n    metersPerUnit = 1\n    upAxis = "Y"\n)\n\ndef Xform "LEDScreen" (\n    kind = "component"\n)\n{\n    def Mesh "Screen"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw).toFixed(4) + ', ' + (-hh).toFixed(4) + ', 0),\n            (' + hw.toFixed(4) + ', ' + (-hh).toFixed(4) + ', 0),\n            (' + (-hw).toFixed(4) + ', ' + hh.toFixed(4) + ', 0),\n            (' + hw.toFixed(4) + ', ' + hh.toFixed(4) + ', 0)\n        ]\n        texCoord2f[] primvars:st = [(0, 0), (1, 0), (0, 1), (1, 1)] (\n            interpolation = "vertex"\n        )\n        int[] primvars:st:indices = [0, 1, 3, 2]\n        rel material:binding = </LEDScreen/Materials/ScreenMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    def Scope "Materials"\n    {\n        def Material "ScreenMaterial"\n        {\n            token outputs:surface.connect = </LEDScreen/Materials/ScreenMaterial/PBRShader.outputs:surface>\n            \n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0, 0, 0)\n                color3f inputs:emissiveColor.connect = </LEDScreen/Materials/ScreenMaterial/Texture.outputs:rgb>\n                float inputs:roughness = 1.0\n                float inputs:metallic = 0.0\n                float inputs:opacity = 1.0\n                token outputs:surface\n            }\n            \n            def Shader "Texture"\n            {\n                uniform token info:id = "UsdUVTexture"\n                asset inputs:file = @texture.jpg@\n                float2 inputs:st.connect = </LEDScreen/Materials/ScreenMaterial/TexCoordReader.outputs:result>\n                token inputs:wrapS = "clamp"\n                token inputs:wrapT = "clamp"\n                float3 outputs:rgb\n            }\n            \n            def Shader "TexCoordReader"\n            {\n                uniform token info:id = "UsdPrimvarReader_float2"\n                string inputs:varname = "st"\n                float2 outputs:result\n            }\n        }\n    }\n}\n';
         }
         
         async function generateUSDZ() {
             var widthM = state.width * FT_TO_M;
             var heightM = state.height * FT_TO_M;
-            var depthM = 0.05;
+            var depthM = 0.02;
             
             var img = await loadImage(state.genre);
             
@@ -331,6 +341,11 @@
             if (currentUsdzUrl) URL.revokeObjectURL(currentUsdzUrl);
             currentUsdzUrl = URL.createObjectURL(blob);
             return currentUsdzUrl + '#.usdz';
+        }
+        
+        function updatePreviewAspectRatio() {
+            var aspectRatio = state.width / state.height;
+            previewContainer.style.aspectRatio = aspectRatio;
         }
         
         async function updateUI() {
@@ -352,6 +367,8 @@
             document.getElementById('genreDescription').textContent = GENRES[state.genre].description;
             document.getElementById('arDimensions').textContent = state.width + ' ft × ' + state.height + ' ft';
             
+            // Update preview aspect ratio and image
+            updatePreviewAspectRatio();
             previewImg.src = IMAGE_PATHS[state.genre];
             
             var arLink = document.getElementById('arLink');
