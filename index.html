@@ -18,14 +18,14 @@
         
         .preview-section { background: rgba(0,0,0,0.4); border-radius: 20px; padding: 20px; margin-bottom: 20px; border: 1px solid rgba(0,200,255,0.2); }
         .preview-wrapper { display: flex; justify-content: center; align-items: center; margin-bottom: 15px; }
-        .preview-frame { background: #0a0a0a; padding: 8px; border-radius: 4px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        .preview-container { position: relative; background: #000; overflow: hidden; }
+        .preview-cabinet { background: #0a0a0a; padding: 6px; border-radius: 2px; box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05); }
+        .preview-screen { position: relative; overflow: hidden; background: #000; }
         #previewCanvas { display: block; }
         .preview-label { text-align: center; font-size: 12px; color: rgba(255,255,255,0.5); }
         
         .ar-button { display: flex; width: 100%; padding: 18px; font-size: 18px; font-weight: 700; color: #000; background: linear-gradient(135deg, #00ff88, #00d4ff); border: none; border-radius: 50px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; align-items: center; justify-content: center; gap: 10px; text-decoration: none; }
         .ar-button:active { transform: scale(0.98); }
-        .ar-button.loading { background: linear-gradient(135deg, #888, #666); pointer-events: none; }
+        .ar-button.loading { background: linear-gradient(135deg, #666, #444); pointer-events: none; }
         .ar-button svg { width: 24px; height: 24px; }
         
         .ar-note { text-align: center; font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 20px; }
@@ -52,7 +52,7 @@
         .slider-label { font-size: 12px; color: rgba(255,255,255,0.6); }
         .slider-value { font-size: 16px; color: #00d4ff; font-weight: 700; }
         input[type="range"] { width: 100%; height: 8px; -webkit-appearance: none; background: rgba(0,100,200,0.3); border-radius: 4px; outline: none; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; background: linear-gradient(135deg, #00a8ff, #00d4aa); border-radius: 50%; cursor: pointer; box-shadow: 0 2px 10px rgba(0,200,255,0.4); }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; background: linear-gradient(135deg, #00a8ff, #00d4aa); border-radius: 50%; cursor: pointer; }
         input[type="range"]:disabled { opacity: 0.4; }
         
         .genre-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
@@ -77,13 +77,13 @@
         
         <div class="preview-section">
             <div class="preview-wrapper">
-                <div class="preview-frame">
-                    <div class="preview-container">
+                <div class="preview-cabinet">
+                    <div class="preview-screen">
                         <canvas id="previewCanvas"></canvas>
                     </div>
                 </div>
             </div>
-            <div class="preview-label">Preview with LED pixel effect · <span id="pitchPreview">P2.5</span></div>
+            <div class="preview-label">LED pixel simulation · <span id="pitchPreview">P1.9</span></div>
         </div>
         
         <a id="arLink" rel="ar" href="#" class="ar-button">
@@ -97,8 +97,8 @@
             <div class="section-title">Pricing</div>
             <div class="pricing-display">
                 <div class="price" id="priceDisplay">$80,000+</div>
-                <div class="price-details">Estimated starting price · <span id="pitchLabel">P2.5 Standard</span></div>
-                <div class="viewing-distance">Recommended viewing: <strong id="viewingDistance">20+ feet</strong></div>
+                <div class="price-details">Estimated starting price · <span id="pitchLabel">P1.9 Standard</span></div>
+                <div class="viewing-distance">Recommended viewing: <strong id="viewingDistance">15+ feet</strong></div>
             </div>
         </div>
         
@@ -133,10 +133,10 @@
         <div class="config-section">
             <div class="section-title">Pixel Pitch</div>
             <div class="button-grid">
-                <button class="option-btn" data-pitch="0.9">0.9mm<small>Ultra-Fine</small></button>
-                <button class="option-btn" data-pitch="1.5">1.5mm<small>Premium</small></button>
-                <button class="option-btn active" data-pitch="2.5">2.5mm<small>Standard</small></button>
-                <button class="option-btn" data-pitch="4.0">4.0mm<small>Outdoor</small></button>
+                <button class="option-btn" data-pitch="0.9">P0.9<small>Ultra HD</small></button>
+                <button class="option-btn" data-pitch="1.25">P1.25<small>Premium</small></button>
+                <button class="option-btn active" data-pitch="1.9">P1.9<small>Standard</small></button>
+                <button class="option-btn" data-pitch="2.6">P2.6<small>Value</small></button>
             </div>
         </div>
         
@@ -154,8 +154,8 @@
         <div class="config-section">
             <div class="section-title">Specifications</div>
             <div class="specs-row">
-                <div class="spec-box"><div class="spec-label">Resolution</div><div class="spec-value" id="resolutionSpec">1684 x 947</div></div>
-                <div class="spec-box"><div class="spec-label">Total Pixels</div><div class="spec-value" id="pixelsSpec">1.59M</div></div>
+                <div class="spec-box"><div class="spec-label">Resolution</div><div class="spec-value" id="resolutionSpec">2212 x 1244</div></div>
+                <div class="spec-box"><div class="spec-label">Total Pixels</div><div class="spec-value" id="pixelsSpec">2.75M</div></div>
                 <div class="spec-box"><div class="spec-label">Area</div><div class="spec-value" id="areaSpec">106 sq ft</div></div>
             </div>
         </div>
@@ -176,28 +176,28 @@
         };
         
         var GENRES = {
-            worship: { label: 'Worship', description: 'Churches & Houses of Worship' },
-            corporate: { label: 'Corporate', description: 'Lobbies & Boardrooms' },
-            sports: { label: 'Sports', description: 'Sports Bars & Game Day' },
-            concert: { label: 'Concert', description: 'Live Events & Nightclubs' }
+            worship: { description: 'Churches & Houses of Worship' },
+            corporate: { description: 'Lobbies & Boardrooms' },
+            sports: { description: 'Sports Bars & Game Day' },
+            concert: { description: 'Live Events & Nightclubs' }
         };
         
         var WIDTH_INCREMENTS = [3.9, 5.9, 7.9, 9.8, 11.8, 13.8, 15.7, 17.7, 19.7, 21.7, 23.6, 25.6, 27.6, 29.5, 31.5, 33.5, 35.4, 37.4, 39.4];
         var HEIGHT_INCREMENTS = [2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.9, 10.0, 11.1, 12.2, 13.3, 14.4, 15.5, 16.6, 17.7, 18.9, 20.0, 21.1];
         
+        // Correct pixel pitches: 0.9, 1.25, 1.9, 2.6
         var PRICING = {
-            'P0.9': { costPerSqft: 385, minViewingFt: 7, label: 'Ultra-Fine' },
-            'P1.5': { costPerSqft: 250, minViewingFt: 12, label: 'Premium' },
-            'P2.5': { costPerSqft: 165, minViewingFt: 20, label: 'Standard' },
-            'P4.0': { costPerSqft: 95, minViewingFt: 32, label: 'Outdoor' }
+            0.9:  { costPerSqft: 450, minViewingFt: 6,  label: 'Ultra HD' },
+            1.25: { costPerSqft: 320, minViewingFt: 10, label: 'Premium' },
+            1.9:  { costPerSqft: 200, minViewingFt: 15, label: 'Standard' },
+            2.6:  { costPerSqft: 140, minViewingFt: 20, label: 'Value' }
         };
         
         var MARGIN_DIVISOR = 0.218;
         var FT_TO_M = 0.3048;
-        var FRAME_DEPTH_INCHES = 2.5;
-        var FRAME_DEPTH_M = FRAME_DEPTH_INCHES * 0.0254;
+        var FRAME_DEPTH_M = 0.0635; // 2.5 inches in meters
         
-        var state = { shape: 'rectangle', width: 13.8, height: 7.7, pixelPitch: 2.5, genre: 'sports' };
+        var state = { shape: 'rectangle', width: 13.8, height: 7.7, pixelPitch: 1.9, genre: 'sports' };
         var currentUsdzUrl = null;
         var loadedImages = {};
         
@@ -243,16 +243,8 @@
             return snapToIncrement(width / targetRatio, HEIGHT_INCREMENTS);
         }
         
-        function getPitchKey(pitch) {
-            if (pitch === 0.9) return 'P0.9';
-            if (pitch === 1.5) return 'P1.5';
-            if (pitch === 2.5) return 'P2.5';
-            if (pitch === 4.0) return 'P4.0';
-            return 'P2.5';
-        }
-        
-        function getCostPerSqft(sqft, pitchKey) {
-            var baseCost = PRICING[pitchKey].costPerSqft;
+        function getCostPerSqft(sqft, pitch) {
+            var baseCost = PRICING[pitch].costPerSqft;
             if (sqft >= 175) return baseCost * 0.78;
             if (sqft >= 120) return baseCost * 0.85;
             if (sqft >= 80) return baseCost * 0.92;
@@ -260,9 +252,8 @@
         }
         
         function calculateDisplayPrice(width, height, pitch) {
-            var key = getPitchKey(pitch);
             var sqft = width * height;
-            var cost = getCostPerSqft(sqft, key) * sqft;
+            var cost = getCostPerSqft(sqft, pitch) * sqft;
             return Math.floor((cost / MARGIN_DIVISOR) / 10000) * 10000;
         }
         
@@ -271,68 +262,70 @@
             return '$' + price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '+';
         }
         
-        function calcResolution(pitch) {
-            var wMM = state.width * 304.8;
-            var hMM = state.height * 304.8;
-            return { w: Math.round(wMM / pitch), h: Math.round(hMM / pitch) };
+        function calcResolution(widthFt, heightFt, pitchMM) {
+            var wMM = widthFt * 304.8;
+            var hMM = heightFt * 304.8;
+            return { w: Math.round(wMM / pitchMM), h: Math.round(hMM / pitchMM) };
         }
         
-        // Draw image with LED pixel grid overlay
-        function drawWithPixelGrid(ctx, img, w, h, widthFt, heightFt, pitch) {
-            // Clear
+        // Draw image with proper center crop and LED pixel grid
+        function drawLEDScreen(ctx, img, canvasW, canvasH, screenWidthFt, screenHeightFt, pitchMM) {
             ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, w, h);
+            ctx.fillRect(0, 0, canvasW, canvasH);
             
-            if (img) {
-                // Calculate crop to match aspect ratio (center crop)
-                var targetAspect = widthFt / heightFt;
-                var imgAspect = img.width / img.height;
-                var sx, sy, sw, sh;
-                
-                if (imgAspect > targetAspect) {
-                    // Image is wider - crop sides
-                    sh = img.height;
-                    sw = img.height * targetAspect;
-                    sx = (img.width - sw) / 2;
-                    sy = 0;
-                } else {
-                    // Image is taller - crop top/bottom
-                    sw = img.width;
-                    sh = img.width / targetAspect;
-                    sx = 0;
-                    sy = (img.height - sh) / 2;
-                }
-                
-                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+            if (!img) return;
+            
+            // Center crop the image to match screen aspect ratio
+            var screenAspect = screenWidthFt / screenHeightFt;
+            var imgAspect = img.width / img.height;
+            
+            var srcX, srcY, srcW, srcH;
+            
+            if (imgAspect > screenAspect) {
+                // Image is wider than screen - crop left/right
+                srcH = img.height;
+                srcW = img.height * screenAspect;
+                srcX = (img.width - srcW) / 2;
+                srcY = 0;
+            } else {
+                // Image is taller than screen - crop top/bottom
+                srcW = img.width;
+                srcH = img.width / screenAspect;
+                srcX = 0;
+                srcY = (img.height - srcH) / 2;
             }
+            
+            // Draw cropped image to fill canvas
+            ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvasW, canvasH);
             
             // Calculate LED pixel grid
-            var screenWidthMM = widthFt * 304.8;
-            var pixelsAcross = screenWidthMM / pitch;
-            var pixelSizePx = w / pixelsAcross;
+            // How many pixels fit across the screen width?
+            var screenWidthMM = screenWidthFt * 304.8;
+            var numPixelsAcross = Math.floor(screenWidthMM / pitchMM);
+            var pixelSizeOnCanvas = canvasW / numPixelsAcross;
             
-            // Only draw grid if pixels are visible (> 1.5px on screen)
-            if (pixelSizePx > 1.5) {
-                // Gap between pixels (proportional to pitch)
-                var gapRatio = 0.12; // 12% gap
-                var gapSize = pixelSizePx * gapRatio;
+            // Only draw grid if pixels are large enough to see (> 2px)
+            if (pixelSizeOnCanvas > 2) {
+                // LED pixels have gaps between them - typically ~15% of pitch
+                var gapRatio = 0.15;
+                var gapSize = Math.max(0.5, pixelSizeOnCanvas * gapRatio);
                 
-                ctx.fillStyle = 'rgba(0,0,0,0.9)';
+                ctx.fillStyle = '#000';
                 
-                // Vertical gaps
-                for (var x = pixelSizePx - gapSize/2; x < w; x += pixelSizePx) {
-                    ctx.fillRect(x, 0, gapSize, h);
+                // Draw vertical black lines (gaps between LED columns)
+                for (var x = pixelSizeOnCanvas; x < canvasW; x += pixelSizeOnCanvas) {
+                    ctx.fillRect(Math.round(x - gapSize/2), 0, Math.ceil(gapSize), canvasH);
                 }
                 
-                // Horizontal gaps
-                for (var y = pixelSizePx - gapSize/2; y < h; y += pixelSizePx) {
-                    ctx.fillRect(0, y, w, gapSize);
+                // Draw horizontal black lines (gaps between LED rows)
+                for (var y = pixelSizeOnCanvas; y < canvasH; y += pixelSizeOnCanvas) {
+                    ctx.fillRect(0, Math.round(y - gapSize/2), canvasW, Math.ceil(gapSize));
                 }
             }
         }
         
-        // Generate texture for AR with pixel grid
-        function generateTexture(img, widthFt, heightFt, pitch) {
+        // Generate texture for USDZ
+        function generateTexture(img, widthFt, heightFt, pitchMM) {
             var aspectRatio = widthFt / heightFt;
             var texW = 2048;
             var texH = Math.round(texW / aspectRatio);
@@ -340,21 +333,202 @@
             textureCanvas.width = texW;
             textureCanvas.height = texH;
             
-            drawWithPixelGrid(textureCtx, img, texW, texH, widthFt, heightFt, pitch);
+            drawLEDScreen(textureCtx, img, texW, texH, widthFt, heightFt, pitchMM);
             
             return textureCanvas.toDataURL('image/jpeg', 0.92);
         }
         
-        // Generate USDA with frame depth
+        // Generate proper USDA with 3D cabinet frame
         function generateUSDA(widthM, heightM) {
-            var hw = widthM / 2;
-            var hh = heightM / 2;
+            var w = widthM / 2;  // half width
+            var h = heightM / 2; // half height
             var d = FRAME_DEPTH_M;
+            var f = 0.02; // frame thickness (visible edge)
             
-            // Frame extends around edges
-            var frameW = 0.015; // ~0.6" frame width
+            // Cabinet is a box: back + 4 sides, with screen on front
+            var usda = '#usda 1.0\n';
+            usda += '(\n    defaultPrim = "LEDWall"\n    metersPerUnit = 1\n    upAxis = "Y"\n)\n\n';
+            usda += 'def Xform "LEDWall" (\n    kind = "component"\n)\n{\n';
             
-            return '#usda 1.0\n(\n    defaultPrim = "LEDWall"\n    metersPerUnit = 1\n    upAxis = "Y"\n)\n\ndef Xform "LEDWall" (\n    kind = "component"\n)\n{\n    # Back panel\n    def Mesh "BackPanel"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw-frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (hw+frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (-hw-frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (hw+frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', ' + (-d).toFixed(4) + ')\n        ]\n        rel material:binding = </LEDWall/Materials/FrameMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    # Top edge\n    def Mesh "TopEdge"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw-frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', 0),\n            (' + (hw+frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', 0),\n            (' + (-hw-frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (hw+frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', ' + (-d).toFixed(4) + ')\n        ]\n        rel material:binding = </LEDWall/Materials/FrameMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    # Bottom edge\n    def Mesh "BottomEdge"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw-frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (hw+frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (-hw-frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', 0),\n            (' + (hw+frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', 0)\n        ]\n        rel material:binding = </LEDWall/Materials/FrameMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    # Left edge\n    def Mesh "LeftEdge"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw-frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (-hw-frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', 0),\n            (' + (-hw-frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (-hw-frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', 0)\n        ]\n        rel material:binding = </LEDWall/Materials/FrameMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    # Right edge\n    def Mesh "RightEdge"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (hw+frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', 0),\n            (' + (hw+frameW).toFixed(4) + ', ' + (-hh-frameW).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n            (' + (hw+frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', 0),\n            (' + (hw+frameW).toFixed(4) + ', ' + (hh+frameW).toFixed(4) + ', ' + (-d).toFixed(4) + ')\n        ]\n        rel material:binding = </LEDWall/Materials/FrameMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    # Screen (flush with front)\n    def Mesh "Screen"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw).toFixed(4) + ', ' + (-hh).toFixed(4) + ', 0.001),\n            (' + hw.toFixed(4) + ', ' + (-hh).toFixed(4) + ', 0.001),\n            (' + (-hw).toFixed(4) + ', ' + hh.toFixed(4) + ', 0.001),\n            (' + hw.toFixed(4) + ', ' + hh.toFixed(4) + ', 0.001)\n        ]\n        texCoord2f[] primvars:st = [(0, 0), (1, 0), (0, 1), (1, 1)] (\n            interpolation = "vertex"\n        )\n        int[] primvars:st:indices = [0, 1, 3, 2]\n        rel material:binding = </LEDWall/Materials/ScreenMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    def Scope "Materials"\n    {\n        def Material "FrameMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/FrameMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0.02, 0.02, 0.02)\n                float inputs:roughness = 0.7\n                float inputs:metallic = 0.3\n                token outputs:surface\n            }\n        }\n        \n        def Material "ScreenMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/ScreenMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0, 0, 0)\n                color3f inputs:emissiveColor.connect = </LEDWall/Materials/ScreenMaterial/Texture.outputs:rgb>\n                float inputs:roughness = 1.0\n                float inputs:metallic = 0.0\n                token outputs:surface\n            }\n            def Shader "Texture"\n            {\n                uniform token info:id = "UsdUVTexture"\n                asset inputs:file = @texture.jpg@\n                float2 inputs:st.connect = </LEDWall/Materials/ScreenMaterial/TexCoordReader.outputs:result>\n                token inputs:wrapS = "clamp"\n                token inputs:wrapT = "clamp"\n                float3 outputs:rgb\n            }\n            def Shader "TexCoordReader"\n            {\n                uniform token info:id = "UsdPrimvarReader_float2"\n                string inputs:varname = "st"\n                float2 outputs:result\n            }\n        }\n    }\n}\n';
+            // CABINET - Back panel
+            usda += '    def Mesh "CabinetBack"\n    {\n';
+            usda += '        int[] faceVertexCounts = [4]\n';
+            usda += '        int[] faceVertexIndices = [0, 2, 3, 1]\n';
+            usda += '        point3f[] points = [\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (-h-f).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (-h-f).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (h+f).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (h+f).toFixed(4) + ', ' + (-d).toFixed(4) + ')\n';
+            usda += '        ]\n';
+            usda += '        rel material:binding = </LEDWall/Materials/CabinetMat>\n';
+            usda += '    }\n\n';
+            
+            // CABINET - Top side
+            usda += '    def Mesh "CabinetTop"\n    {\n';
+            usda += '        int[] faceVertexCounts = [4]\n';
+            usda += '        int[] faceVertexIndices = [0, 1, 3, 2]\n';
+            usda += '        point3f[] points = [\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (h+f).toFixed(4) + ', 0),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (h+f).toFixed(4) + ', 0),\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (h+f).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (h+f).toFixed(4) + ', ' + (-d).toFixed(4) + ')\n';
+            usda += '        ]\n';
+            usda += '        rel material:binding = </LEDWall/Materials/CabinetMat>\n';
+            usda += '    }\n\n';
+            
+            // CABINET - Bottom side
+            usda += '    def Mesh "CabinetBottom"\n    {\n';
+            usda += '        int[] faceVertexCounts = [4]\n';
+            usda += '        int[] faceVertexIndices = [0, 2, 3, 1]\n';
+            usda += '        point3f[] points = [\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (-h-f).toFixed(4) + ', 0),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (-h-f).toFixed(4) + ', 0),\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (-h-f).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (-h-f).toFixed(4) + ', ' + (-d).toFixed(4) + ')\n';
+            usda += '        ]\n';
+            usda += '        rel material:binding = </LEDWall/Materials/CabinetMat>\n';
+            usda += '    }\n\n';
+            
+            // CABINET - Left side
+            usda += '    def Mesh "CabinetLeft"\n    {\n';
+            usda += '        int[] faceVertexCounts = [4]\n';
+            usda += '        int[] faceVertexIndices = [0, 2, 3, 1]\n';
+            usda += '        point3f[] points = [\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (-h-f).toFixed(4) + ', 0),\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (-h-f).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (h+f).toFixed(4) + ', 0),\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (h+f).toFixed(4) + ', ' + (-d).toFixed(4) + ')\n';
+            usda += '        ]\n';
+            usda += '        rel material:binding = </LEDWall/Materials/CabinetMat>\n';
+            usda += '    }\n\n';
+            
+            // CABINET - Right side
+            usda += '    def Mesh "CabinetRight"\n    {\n';
+            usda += '        int[] faceVertexCounts = [4]\n';
+            usda += '        int[] faceVertexIndices = [0, 1, 3, 2]\n';
+            usda += '        point3f[] points = [\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (-h-f).toFixed(4) + ', 0),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (-h-f).toFixed(4) + ', ' + (-d).toFixed(4) + '),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (h+f).toFixed(4) + ', 0),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (h+f).toFixed(4) + ', ' + (-d).toFixed(4) + ')\n';
+            usda += '        ]\n';
+            usda += '        rel material:binding = </LEDWall/Materials/CabinetMat>\n';
+            usda += '    }\n\n';
+            
+            // CABINET - Front bezel (frame around screen)
+            // Top bezel
+            usda += '    def Mesh "BezelTop"\n    {\n';
+            usda += '        int[] faceVertexCounts = [4]\n';
+            usda += '        int[] faceVertexIndices = [0, 1, 3, 2]\n';
+            usda += '        point3f[] points = [\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + h.toFixed(4) + ', 0),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + h.toFixed(4) + ', 0),\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (h+f).toFixed(4) + ', 0),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (h+f).toFixed(4) + ', 0)\n';
+            usda += '        ]\n';
+            usda += '        rel material:binding = </LEDWall/Materials/CabinetMat>\n';
+            usda += '    }\n\n';
+            
+            // Bottom bezel
+            usda += '    def Mesh "BezelBottom"\n    {\n';
+            usda += '        int[] faceVertexCounts = [4]\n';
+            usda += '        int[] faceVertexIndices = [0, 1, 3, 2]\n';
+            usda += '        point3f[] points = [\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (-h-f).toFixed(4) + ', 0),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (-h-f).toFixed(4) + ', 0),\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (-h).toFixed(4) + ', 0),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (-h).toFixed(4) + ', 0)\n';
+            usda += '        ]\n';
+            usda += '        rel material:binding = </LEDWall/Materials/CabinetMat>\n';
+            usda += '    }\n\n';
+            
+            // Left bezel
+            usda += '    def Mesh "BezelLeft"\n    {\n';
+            usda += '        int[] faceVertexCounts = [4]\n';
+            usda += '        int[] faceVertexIndices = [0, 1, 3, 2]\n';
+            usda += '        point3f[] points = [\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + (-h).toFixed(4) + ', 0),\n';
+            usda += '            (' + (-w).toFixed(4) + ', ' + (-h).toFixed(4) + ', 0),\n';
+            usda += '            (' + (-w-f).toFixed(4) + ', ' + h.toFixed(4) + ', 0),\n';
+            usda += '            (' + (-w).toFixed(4) + ', ' + h.toFixed(4) + ', 0)\n';
+            usda += '        ]\n';
+            usda += '        rel material:binding = </LEDWall/Materials/CabinetMat>\n';
+            usda += '    }\n\n';
+            
+            // Right bezel
+            usda += '    def Mesh "BezelRight"\n    {\n';
+            usda += '        int[] faceVertexCounts = [4]\n';
+            usda += '        int[] faceVertexIndices = [0, 1, 3, 2]\n';
+            usda += '        point3f[] points = [\n';
+            usda += '            (' + w.toFixed(4) + ', ' + (-h).toFixed(4) + ', 0),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + (-h).toFixed(4) + ', 0),\n';
+            usda += '            (' + w.toFixed(4) + ', ' + h.toFixed(4) + ', 0),\n';
+            usda += '            (' + (w+f).toFixed(4) + ', ' + h.toFixed(4) + ', 0)\n';
+            usda += '        ]\n';
+            usda += '        rel material:binding = </LEDWall/Materials/CabinetMat>\n';
+            usda += '    }\n\n';
+            
+            // SCREEN - LED display surface
+            usda += '    def Mesh "Screen"\n    {\n';
+            usda += '        int[] faceVertexCounts = [4]\n';
+            usda += '        int[] faceVertexIndices = [0, 1, 3, 2]\n';
+            usda += '        point3f[] points = [\n';
+            usda += '            (' + (-w).toFixed(4) + ', ' + (-h).toFixed(4) + ', 0.002),\n';
+            usda += '            (' + w.toFixed(4) + ', ' + (-h).toFixed(4) + ', 0.002),\n';
+            usda += '            (' + (-w).toFixed(4) + ', ' + h.toFixed(4) + ', 0.002),\n';
+            usda += '            (' + w.toFixed(4) + ', ' + h.toFixed(4) + ', 0.002)\n';
+            usda += '        ]\n';
+            usda += '        texCoord2f[] primvars:st = [(0, 0), (1, 0), (0, 1), (1, 1)] (\n';
+            usda += '            interpolation = "vertex"\n';
+            usda += '        )\n';
+            usda += '        int[] primvars:st:indices = [0, 1, 3, 2]\n';
+            usda += '        rel material:binding = </LEDWall/Materials/ScreenMat>\n';
+            usda += '    }\n\n';
+            
+            // MATERIALS
+            usda += '    def Scope "Materials"\n    {\n';
+            
+            // Cabinet material - matte black metal
+            usda += '        def Material "CabinetMat"\n        {\n';
+            usda += '            token outputs:surface.connect = </LEDWall/Materials/CabinetMat/Shader.outputs:surface>\n';
+            usda += '            def Shader "Shader"\n            {\n';
+            usda += '                uniform token info:id = "UsdPreviewSurface"\n';
+            usda += '                color3f inputs:diffuseColor = (0.015, 0.015, 0.015)\n';
+            usda += '                float inputs:roughness = 0.6\n';
+            usda += '                float inputs:metallic = 0.4\n';
+            usda += '                token outputs:surface\n';
+            usda += '            }\n';
+            usda += '        }\n\n';
+            
+            // Screen material - emissive texture (no reflections)
+            usda += '        def Material "ScreenMat"\n        {\n';
+            usda += '            token outputs:surface.connect = </LEDWall/Materials/ScreenMat/Shader.outputs:surface>\n';
+            usda += '            def Shader "Shader"\n            {\n';
+            usda += '                uniform token info:id = "UsdPreviewSurface"\n';
+            usda += '                color3f inputs:diffuseColor = (0, 0, 0)\n';
+            usda += '                color3f inputs:emissiveColor.connect = </LEDWall/Materials/ScreenMat/Tex.outputs:rgb>\n';
+            usda += '                float inputs:roughness = 1\n';
+            usda += '                float inputs:metallic = 0\n';
+            usda += '                token outputs:surface\n';
+            usda += '            }\n';
+            usda += '            def Shader "Tex"\n            {\n';
+            usda += '                uniform token info:id = "UsdUVTexture"\n';
+            usda += '                asset inputs:file = @texture.jpg@\n';
+            usda += '                float2 inputs:st.connect = </LEDWall/Materials/ScreenMat/UV.outputs:result>\n';
+            usda += '                token inputs:wrapS = "clamp"\n';
+            usda += '                token inputs:wrapT = "clamp"\n';
+            usda += '                float3 outputs:rgb\n';
+            usda += '            }\n';
+            usda += '            def Shader "UV"\n            {\n';
+            usda += '                uniform token info:id = "UsdPrimvarReader_float2"\n';
+            usda += '                string inputs:varname = "st"\n';
+            usda += '                float2 outputs:result\n';
+            usda += '            }\n';
+            usda += '        }\n';
+            usda += '    }\n';
+            usda += '}\n';
+            
+            return usda;
         }
         
         async function generateUSDZ() {
@@ -381,14 +555,14 @@
         }
         
         function updatePreview() {
-            var maxWidth = 340;
-            var aspectRatio = state.width / state.height;
-            var w = maxWidth;
-            var h = Math.round(w / aspectRatio);
+            var maxW = 320;
+            var aspect = state.width / state.height;
+            var w = maxW;
+            var h = Math.round(w / aspect);
             
-            if (h > 250) {
-                h = 250;
-                w = Math.round(h * aspectRatio);
+            if (h > 220) {
+                h = 220;
+                w = Math.round(h * aspect);
             }
             
             previewCanvas.width = w * 2;
@@ -397,7 +571,7 @@
             previewCanvas.style.height = h + 'px';
             
             var img = loadedImages[state.genre];
-            drawWithPixelGrid(previewCtx, img, w * 2, h * 2, state.width, state.height, state.pixelPitch);
+            drawLEDScreen(previewCtx, img, w * 2, h * 2, state.width, state.height, state.pixelPitch);
         }
         
         async function updateUI() {
@@ -405,13 +579,13 @@
             document.getElementById('heightValue').textContent = state.height + ' ft';
             
             var price = calculateDisplayPrice(state.width, state.height, state.pixelPitch);
-            var key = getPitchKey(state.pixelPitch);
+            var pricingInfo = PRICING[state.pixelPitch];
             document.getElementById('priceDisplay').textContent = formatPrice(price);
-            document.getElementById('pitchLabel').textContent = key + ' ' + PRICING[key].label;
-            document.getElementById('pitchPreview').textContent = key;
-            document.getElementById('viewingDistance').textContent = PRICING[key].minViewingFt + '+ feet';
+            document.getElementById('pitchLabel').textContent = 'P' + state.pixelPitch + ' ' + pricingInfo.label;
+            document.getElementById('pitchPreview').textContent = 'P' + state.pixelPitch;
+            document.getElementById('viewingDistance').textContent = pricingInfo.minViewingFt + '+ feet';
             
-            var res = calcResolution(state.pixelPitch);
+            var res = calcResolution(state.width, state.height, state.pixelPitch);
             var total = res.w * res.h;
             var sqft = Math.round(state.width * state.height);
             document.getElementById('resolutionSpec').textContent = res.w + ' x ' + res.h;
@@ -420,7 +594,6 @@
             document.getElementById('genreDescription').textContent = GENRES[state.genre].description;
             document.getElementById('arDimensions').textContent = state.width + ' ft × ' + state.height + ' ft';
             
-            // Wait for image then update preview
             await loadImage(state.genre);
             updatePreview();
             
@@ -435,7 +608,7 @@
                 arButton.textContent = 'View in Your Space';
                 arLink.classList.remove('loading');
             } catch(e) {
-                console.error('USDZ generation failed:', e);
+                console.error('USDZ error:', e);
                 arButton.textContent = 'View in Your Space';
                 arLink.classList.remove('loading');
             }
@@ -444,7 +617,7 @@
         var updateTimeout = null;
         function debouncedUpdate() {
             if (updateTimeout) clearTimeout(updateTimeout);
-            updateTimeout = setTimeout(updateUI, 200);
+            updateTimeout = setTimeout(updateUI, 150);
         }
         
         document.querySelectorAll('[data-shape]').forEach(function(btn) {
