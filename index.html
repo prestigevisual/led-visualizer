@@ -18,7 +18,7 @@
         
         .preview-section { background: rgba(0,0,0,0.4); border-radius: 20px; padding: 20px; margin-bottom: 20px; border: 1px solid rgba(0,200,255,0.2); }
         .preview-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 15px; }
-        #previewCanvas { width: 100%; height: 100%; display: block; }
+        #previewImage { width: 100%; height: 100%; object-fit: cover; display: block; }
         .preview-label { text-align: center; font-size: 12px; color: rgba(255,255,255,0.5); }
         
         .ar-button { display: flex; width: 100%; padding: 18px; font-size: 18px; font-weight: 700; color: #000; background: linear-gradient(135deg, #00ff88, #00d4ff); border: none; border-radius: 50px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; align-items: center; justify-content: center; gap: 10px; text-decoration: none; }
@@ -64,8 +64,6 @@
         .spec-value { font-size: 14px; color: #00d4ff; font-weight: 600; }
         
         .disclaimer { font-size: 10px; color: rgba(255,255,255,0.4); text-align: center; line-height: 1.5; padding: 15px; }
-        
-        .loading-indicator { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #00d4ff; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -77,16 +75,14 @@
         
         <div class="preview-section">
             <div class="preview-container">
-                <canvas id="previewCanvas"></canvas>
-                <div class="loading-indicator" id="loadingIndicator" style="display:none;">Loading HD Image...</div>
+                <img id="previewImage" src="images/sports.jpg" alt="Preview">
             </div>
-            <div class="preview-label">Preview with LED pixel simulation</div>
+            <div class="preview-label">HD Preview - Select content type below</div>
         </div>
         
         <a id="arLink" rel="ar" href="#" class="ar-button">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg>
             <span id="arButtonText">View in Your Space</span>
-            <img id="arImg" style="display:none;">
         </a>
         
         <div class="ar-note">Opens iOS AR viewer · Size: <span id="arDimensions">13.8 ft × 7.7 ft</span></div>
@@ -95,8 +91,8 @@
             <div class="section-title">Pricing</div>
             <div class="pricing-display">
                 <div class="price" id="priceDisplay">$80,000+</div>
-                <div class="price-details">Estimated starting price · <span id="pitchLabel">P1.9 Standard</span></div>
-                <div class="viewing-distance">Recommended viewing: <strong id="viewingDistance">15+ feet</strong></div>
+                <div class="price-details">Estimated starting price · <span id="pitchLabel">P2.5 Standard</span></div>
+                <div class="viewing-distance">Recommended viewing: <strong id="viewingDistance">20+ feet</strong></div>
             </div>
         </div>
         
@@ -106,7 +102,7 @@
                 <button class="option-btn active" data-shape="rectangle">Rectangle<small>16:9</small></button>
                 <button class="option-btn" data-shape="square">Square<small>1:1</small></button>
                 <button class="option-btn" data-shape="ultrawide">Ultrawide<small>21:9</small></button>
-                <button class="option-btn" data-shape="custom">Custom<small id="customRatio">Free</small></button>
+                <button class="option-btn" data-shape="custom">Custom<small>Free</small></button>
             </div>
         </div>
         
@@ -144,10 +140,7 @@
                 <button class="genre-btn" data-genre="worship">Worship</button>
                 <button class="genre-btn" data-genre="corporate">Corporate</button>
                 <button class="genre-btn active" data-genre="sports">Sports</button>
-                <button class="genre-btn" data-genre="cinema">Cinema</button>
                 <button class="genre-btn" data-genre="concert">Concert</button>
-                <button class="genre-btn" data-genre="retail">Retail</button>
-                <button class="genre-btn" data-genre="nature">Nature</button>
             </div>
             <div class="genre-description" id="genreDescription">Sports Bars & Game Day</div>
         </div>
@@ -162,42 +155,36 @@
         </div>
         
         <div class="disclaimer">
-            Pricing is an estimate based on selected dimensions. Actual panel configurations and final pricing confirmed during consultation.
+            Pricing is an estimate based on selected dimensions. Final pricing confirmed during consultation.
         </div>
     </div>
     
     <canvas id="textureCanvas" style="display:none;"></canvas>
 
     <script>
-        // High-quality image URLs (Unsplash - free to use)
-        var IMAGE_URLS = {
-            sports: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1920&q=90',
-            worship: 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=1920&q=90',
-            corporate: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1920&q=90',
-            concert: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=1920&q=90',
-            retail: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=90',
-            cinema: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1920&q=90',
-            nature: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=1920&q=90'
+        // Local images - these must be uploaded to your repo's /images folder
+        var IMAGE_PATHS = {
+            sports: 'images/sports.jpg',
+            worship: 'images/worship.jpg',
+            corporate: 'images/corporate.jpg',
+            concert: 'images/concert.jpg'
         };
         
         var GENRES = {
             worship: { label: 'Worship', description: 'Churches & Houses of Worship' },
             corporate: { label: 'Corporate', description: 'Lobbies & Boardrooms' },
             sports: { label: 'Sports', description: 'Sports Bars & Game Day' },
-            cinema: { label: 'Cinema', description: 'Home Theater & Media Rooms' },
-            concert: { label: 'Concert', description: 'Live Events & Nightclubs' },
-            retail: { label: 'Retail', description: 'Stores & Commercial Signage' },
-            nature: { label: 'Nature', description: 'Ambient & Demo Content' }
+            concert: { label: 'Concert', description: 'Live Events & Nightclubs' }
         };
         
         var WIDTH_INCREMENTS = [3.9, 5.9, 7.9, 9.8, 11.8, 13.8, 15.7, 17.7, 19.7, 21.7, 23.6, 25.6, 27.6, 29.5, 31.5, 33.5, 35.4, 37.4, 39.4];
         var HEIGHT_INCREMENTS = [2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.9, 10.0, 11.1, 12.2, 13.3, 14.4, 15.5, 16.6, 17.7, 18.9, 20.0, 21.1];
         
         var PRICING = {
-            'P0.9':  { costPerSqft: 385, minViewingFt: 7,  label: 'Ultra-Fine' },
+            'P0.9': { costPerSqft: 385, minViewingFt: 7, label: 'Ultra-Fine' },
             'P1.5': { costPerSqft: 250, minViewingFt: 12, label: 'Premium' },
-            'P2.5':  { costPerSqft: 165, minViewingFt: 20, label: 'Standard' },
-            'P4.0':  { costPerSqft: 95, minViewingFt: 32, label: 'Outdoor' }
+            'P2.5': { costPerSqft: 165, minViewingFt: 20, label: 'Standard' },
+            'P4.0': { costPerSqft: 95, minViewingFt: 32, label: 'Outdoor' }
         };
         
         var MARGIN_DIVISOR = 0.218;
@@ -206,21 +193,18 @@
         var state = { shape: 'rectangle', width: 13.8, height: 7.7, pixelPitch: 2.5, genre: 'sports' };
         var currentUsdzUrl = null;
         var loadedImages = {};
-        var imagesLoading = {};
         
-        var previewCanvas = document.getElementById('previewCanvas');
-        var previewCtx = previewCanvas.getContext('2d');
         var textureCanvas = document.getElementById('textureCanvas');
         var textureCtx = textureCanvas.getContext('2d');
+        var previewImg = document.getElementById('previewImage');
         
-        // Load images
         function loadImage(genre) {
-            if (loadedImages[genre]) return Promise.resolve(loadedImages[genre]);
-            if (imagesLoading[genre]) return imagesLoading[genre];
-            
-            imagesLoading[genre] = new Promise(function(resolve) {
+            return new Promise(function(resolve) {
+                if (loadedImages[genre]) {
+                    resolve(loadedImages[genre]);
+                    return;
+                }
                 var img = new Image();
-                img.crossOrigin = 'anonymous';
                 img.onload = function() {
                     loadedImages[genre] = img;
                     resolve(img);
@@ -228,13 +212,13 @@
                 img.onerror = function() {
                     resolve(null);
                 };
-                img.src = IMAGE_URLS[genre];
+                img.src = IMAGE_PATHS[genre];
             });
-            return imagesLoading[genre];
         }
         
-        // Preload all images
-        Object.keys(IMAGE_URLS).forEach(loadImage);
+        Object.keys(IMAGE_PATHS).forEach(function(genre) {
+            loadImage(genre);
+        });
         
         function snapToIncrement(value, increments) {
             return increments.reduce(function(prev, curr) {
@@ -287,128 +271,17 @@
             return { w: Math.round(wMM / pitch), h: Math.round(hMM / pitch) };
         }
         
-        // Draw LED pixel grid overlay
-        function drawLEDGrid(ctx, w, h, pitch, intensity) {
-            // Calculate pixel size based on pitch and screen dimensions
-            var screenWidthMM = state.width * 304.8;
-            var pixelsAcross = screenWidthMM / pitch;
-            var pixelSize = w / pixelsAcross;
-            
-            // Only draw grid if pixels are large enough to see
-            if (pixelSize < 2) return;
-            
-            // Limit grid density for performance
-            var step = Math.max(1, Math.floor(pixelSize));
-            if (step < 3) step = Math.ceil(pixelSize * 2);
-            
-            ctx.save();
-            
-            // Draw subtle grid lines
-            ctx.strokeStyle = 'rgba(0,0,0,' + (intensity * 0.3) + ')';
-            ctx.lineWidth = Math.max(0.5, pixelSize * 0.08);
-            
-            // Vertical lines
-            for (var x = 0; x < w; x += step) {
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, h);
-                ctx.stroke();
-            }
-            
-            // Horizontal lines
-            for (var y = 0; y < h; y += step) {
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(w, y);
-                ctx.stroke();
-            }
-            
-            // Add subtle RGB subpixel effect for larger pixel sizes
-            if (pixelSize > 6) {
-                ctx.globalCompositeOperation = 'overlay';
-                ctx.globalAlpha = intensity * 0.15;
-                
-                for (var px = 0; px < w; px += step) {
-                    for (var py = 0; py < h; py += step) {
-                        var subW = step / 3;
-                        ctx.fillStyle = 'rgba(255,0,0,0.3)';
-                        ctx.fillRect(px, py, subW, step);
-                        ctx.fillStyle = 'rgba(0,255,0,0.3)';
-                        ctx.fillRect(px + subW, py, subW, step);
-                        ctx.fillStyle = 'rgba(0,0,255,0.3)';
-                        ctx.fillRect(px + subW * 2, py, subW, step);
-                    }
-                }
-            }
-            
-            ctx.restore();
-        }
-        
-        // Draw image with LED effect
-        function drawPreview(img) {
-            var container = previewCanvas.parentElement;
-            var rect = container.getBoundingClientRect();
-            previewCanvas.width = rect.width * 2;
-            previewCanvas.height = rect.height * 2;
-            
-            var w = previewCanvas.width;
-            var h = previewCanvas.height;
-            var ctx = previewCtx;
-            
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, w, h);
-            
-            if (img) {
-                // Draw image scaled to fill
-                var imgAspect = img.width / img.height;
-                var canvasAspect = w / h;
-                var sx = 0, sy = 0, sw = img.width, sh = img.height;
-                
-                if (imgAspect > canvasAspect) {
-                    sw = img.height * canvasAspect;
-                    sx = (img.width - sw) / 2;
-                } else {
-                    sh = img.width / canvasAspect;
-                    sy = (img.height - sh) / 2;
-                }
-                
-                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
-                
-                // Add slight brightness/contrast enhancement
-                ctx.globalCompositeOperation = 'overlay';
-                ctx.fillStyle = 'rgba(255,255,255,0.05)';
-                ctx.fillRect(0, 0, w, h);
-                ctx.globalCompositeOperation = 'source-over';
-            }
-            
-            // Draw LED grid based on pixel pitch
-            var gridIntensity = state.pixelPitch / 4; // More visible for larger pitches
-            drawLEDGrid(ctx, w, h, state.pixelPitch, gridIntensity);
-            
-            // Add subtle vignette for realism
-            var vignette = ctx.createRadialGradient(w/2, h/2, h*0.3, w/2, h/2, h*0.9);
-            vignette.addColorStop(0, 'transparent');
-            vignette.addColorStop(1, 'rgba(0,0,0,0.3)');
-            ctx.fillStyle = vignette;
-            ctx.fillRect(0, 0, w, h);
-        }
-        
-        // Generate high-quality texture for USDZ
-        function generateTexture(img, width, height, pitch) {
+        function generateTexture(img, width, height) {
             var texW = 2048;
             var texH = Math.round(texW * (height / width));
-            
             textureCanvas.width = texW;
             textureCanvas.height = texH;
-            
             var ctx = textureCtx;
             
-            // Clear
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, texW, texH);
             
             if (img) {
-                // Draw image scaled to fill
                 var imgAspect = img.width / img.height;
                 var canvasAspect = texW / texH;
                 var sx = 0, sy = 0, sw = img.width, sh = img.height;
@@ -422,60 +295,29 @@
                 }
                 
                 ctx.drawImage(img, sx, sy, sw, sh, 0, 0, texW, texH);
-                
-                // Enhance brightness for LED look
-                ctx.globalCompositeOperation = 'screen';
-                ctx.fillStyle = 'rgba(20,20,30,0.3)';
-                ctx.fillRect(0, 0, texW, texH);
-                ctx.globalCompositeOperation = 'source-over';
             }
             
-            // Add subtle LED grid for texture
-            var screenWidthMM = width * 304.8;
-            var pixelsAcross = screenWidthMM / pitch;
-            var pixelSize = texW / pixelsAcross;
-            
-            if (pixelSize >= 2) {
-                ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-                ctx.lineWidth = Math.max(0.5, pixelSize * 0.05);
-                
-                var step = Math.max(2, Math.floor(pixelSize));
-                
-                for (var x = 0; x < texW; x += step) {
-                    ctx.beginPath();
-                    ctx.moveTo(x, 0);
-                    ctx.lineTo(x, texH);
-                    ctx.stroke();
-                }
-                for (var y = 0; y < texH; y += step) {
-                    ctx.beginPath();
-                    ctx.moveTo(0, y);
-                    ctx.lineTo(texW, y);
-                    ctx.stroke();
-                }
-            }
-            
-            return textureCanvas.toDataURL('image/jpeg', 0.95);
+            return textureCanvas.toDataURL('image/jpeg', 0.92);
         }
         
         function generateUSDA(widthM, heightM, depthM) {
             var hw = widthM / 2;
             var hh = heightM / 2;
             var hd = depthM / 2;
-            var bezel = 0.015; // Thin bezel
+            var bezel = 0.012;
             
-            return '#usda 1.0\n(\n    defaultPrim = "LEDWall"\n    metersPerUnit = 1\n    upAxis = "Y"\n)\n\ndef Xform "LEDWall" (\n    assetInfo = {\n        string name = "LED Video Wall"\n    }\n    kind = "component"\n)\n{\n    def Mesh "Cabinet"\n    {\n        int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]\n        int[] faceVertexIndices = [0, 1, 3, 2, 4, 6, 7, 5, 0, 4, 5, 1, 2, 3, 7, 6, 0, 2, 6, 4, 1, 5, 7, 3]\n        point3f[] points = [\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + (-hd).toFixed(4) + ')\n        ]\n        rel material:binding = </LEDWall/Materials/CabinetMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    def Mesh "Screen"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw).toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.001).toFixed(4) + '),\n            (' + hw.toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.001).toFixed(4) + '),\n            (' + (-hw).toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.001).toFixed(4) + '),\n            (' + hw.toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.001).toFixed(4) + ')\n        ]\n        texCoord2f[] primvars:st = [(0, 0), (1, 0), (0, 1), (1, 1)] (\n            interpolation = "vertex"\n        )\n        int[] primvars:st:indices = [0, 1, 3, 2]\n        rel material:binding = </LEDWall/Materials/ScreenMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    def Scope "Materials"\n    {\n        def Material "CabinetMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/CabinetMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0.02, 0.02, 0.02)\n                float inputs:roughness = 0.4\n                float inputs:metallic = 0.8\n                token outputs:surface\n            }\n        }\n        \n        def Material "ScreenMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/ScreenMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0.0, 0.0, 0.0)\n                color3f inputs:emissiveColor.connect = </LEDWall/Materials/ScreenMaterial/Texture.outputs:rgb>\n                float inputs:roughness = 0.1\n                float inputs:metallic = 0.0\n                token outputs:surface\n            }\n            def Shader "Texture"\n            {\n                uniform token info:id = "UsdUVTexture"\n                asset inputs:file = @texture.jpg@\n                float2 inputs:st.connect = </LEDWall/Materials/ScreenMaterial/TexCoordReader.outputs:result>\n                token inputs:wrapS = "clamp"\n                token inputs:wrapT = "clamp"\n                float3 outputs:rgb\n            }\n            def Shader "TexCoordReader"\n            {\n                uniform token info:id = "UsdPrimvarReader_float2"\n                string inputs:varname = "st"\n                float2 outputs:result\n            }\n        }\n    }\n}\n';
+            return '#usda 1.0\n(\n    defaultPrim = "LEDWall"\n    metersPerUnit = 1\n    upAxis = "Y"\n)\n\ndef Xform "LEDWall" (\n    assetInfo = {\n        string name = "LED Video Wall"\n    }\n    kind = "component"\n)\n{\n    def Mesh "Cabinet"\n    {\n        int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]\n        int[] faceVertexIndices = [0, 1, 3, 2, 4, 6, 7, 5, 0, 4, 5, 1, 2, 3, 7, 6, 0, 2, 6, 4, 1, 5, 7, 3]\n        point3f[] points = [\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (-(hh+bezel)).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (-(hw+bezel)).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (hw+bezel).toFixed(4) + ', ' + (hh+bezel).toFixed(4) + ', ' + (-hd).toFixed(4) + ')\n        ]\n        rel material:binding = </LEDWall/Materials/CabinetMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    def Mesh "Screen"\n    {\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw).toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.001).toFixed(4) + '),\n            (' + hw.toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.001).toFixed(4) + '),\n            (' + (-hw).toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.001).toFixed(4) + '),\n            (' + hw.toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.001).toFixed(4) + ')\n        ]\n        texCoord2f[] primvars:st = [(0, 0), (1, 0), (0, 1), (1, 1)] (\n            interpolation = "vertex"\n        )\n        int[] primvars:st:indices = [0, 1, 3, 2]\n        rel material:binding = </LEDWall/Materials/ScreenMaterial>\n        uniform token subdivisionScheme = "none"\n    }\n    \n    def Scope "Materials"\n    {\n        def Material "CabinetMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/CabinetMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0.01, 0.01, 0.01)\n                float inputs:roughness = 0.3\n                float inputs:metallic = 0.9\n                token outputs:surface\n            }\n        }\n        \n        def Material "ScreenMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/ScreenMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0.0, 0.0, 0.0)\n                color3f inputs:emissiveColor.connect = </LEDWall/Materials/ScreenMaterial/Texture.outputs:rgb>\n                float inputs:roughness = 0.05\n                float inputs:metallic = 0.0\n                token outputs:surface\n            }\n            def Shader "Texture"\n            {\n                uniform token info:id = "UsdUVTexture"\n                asset inputs:file = @texture.jpg@\n                float2 inputs:st.connect = </LEDWall/Materials/ScreenMaterial/TexCoordReader.outputs:result>\n                token inputs:wrapS = "clamp"\n                token inputs:wrapT = "clamp"\n                float3 outputs:rgb\n            }\n            def Shader "TexCoordReader"\n            {\n                uniform token info:id = "UsdPrimvarReader_float2"\n                string inputs:varname = "st"\n                float2 outputs:result\n            }\n        }\n    }\n}\n';
         }
         
         async function generateUSDZ() {
             var widthM = state.width * FT_TO_M;
             var heightM = state.height * FT_TO_M;
-            var depthM = 0.06;
+            var depthM = 0.05;
             
-            var img = loadedImages[state.genre] || null;
+            var img = await loadImage(state.genre);
             
             var usdaContent = generateUSDA(widthM, heightM, depthM);
-            var textureDataUrl = generateTexture(img, state.width, state.height, state.pixelPitch);
+            var textureDataUrl = generateTexture(img, state.width, state.height);
             var textureBase64 = textureDataUrl.split(',')[1];
             var textureBytes = Uint8Array.from(atob(textureBase64), function(c) { return c.charCodeAt(0); });
             
@@ -510,11 +352,8 @@
             document.getElementById('genreDescription').textContent = GENRES[state.genre].description;
             document.getElementById('arDimensions').textContent = state.width + ' ft × ' + state.height + ' ft';
             
-            // Update preview
-            var img = await loadImage(state.genre);
-            drawPreview(img);
+            previewImg.src = IMAGE_PATHS[state.genre];
             
-            // Generate USDZ
             var arLink = document.getElementById('arLink');
             var arButton = document.getElementById('arButtonText');
             arLink.classList.add('loading');
@@ -532,14 +371,12 @@
             }
         }
         
-        // Debounce updates
         var updateTimeout = null;
         function debouncedUpdate() {
             if (updateTimeout) clearTimeout(updateTimeout);
             updateTimeout = setTimeout(updateUI, 200);
         }
         
-        // Event handlers
         document.querySelectorAll('[data-shape]').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('[data-shape]').forEach(function(b) { b.classList.remove('active'); });
@@ -596,12 +433,6 @@
                 state.height = HEIGHT_INCREMENTS[parseInt(e.target.value)];
                 debouncedUpdate();
             }
-        });
-        
-        // Initial load
-        window.addEventListener('resize', function() {
-            var img = loadedImages[state.genre];
-            if (img) drawPreview(img);
         });
         
         updateUI();
