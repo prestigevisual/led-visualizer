@@ -5,15 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>Prestige Visual System - AR LED Video Wall Visualizer</title>
     
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.157.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.157.0/examples/jsm/"
-        }
-    }
-    </script>
-    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { width: 100%; height: 100%; overflow-x: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0a0a1a 0%, #0f1a2a 50%, #0a0a0f 100%); color: #fff; -webkit-user-select: none; user-select: none; }
@@ -29,18 +20,12 @@
         #previewCanvas { width: 100%; height: 100%; display: block; }
         .preview-label { text-align: center; font-size: 12px; color: rgba(255,255,255,0.5); }
         
+        /* AR Link styled as button */
         .ar-button { display: flex; width: 100%; padding: 18px; font-size: 18px; font-weight: 700; color: #000; background: linear-gradient(135deg, #00ff88, #00d4ff); border: none; border-radius: 50px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; align-items: center; justify-content: center; gap: 10px; text-decoration: none; }
-        .ar-button:disabled { opacity: 0.5; cursor: not-allowed; }
         .ar-button:active { transform: scale(0.98); }
         .ar-button svg { width: 24px; height: 24px; }
         
         .ar-note { text-align: center; font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 20px; }
-        
-        .status-message { text-align: center; padding: 12px; margin-bottom: 15px; border-radius: 10px; font-size: 13px; display: none; }
-        .status-message.show { display: block; }
-        .status-message.success { background: rgba(0,255,100,0.2); color: #00ff88; border: 1px solid rgba(0,255,100,0.3); }
-        .status-message.error { background: rgba(255,50,50,0.2); color: #ff6666; border: 1px solid rgba(255,50,50,0.3); }
-        .status-message.info { background: rgba(0,150,255,0.2); color: #00d4ff; border: 1px solid rgba(0,150,255,0.3); }
         
         .config-section { background: rgba(0,0,0,0.3); border-radius: 16px; padding: 20px; margin-bottom: 15px; border: 1px solid rgba(0,200,255,0.15); }
         .section-title { font-size: 11px; color: #00d4ff; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 15px; font-weight: 600; }
@@ -78,12 +63,7 @@
         
         .disclaimer { font-size: 10px; color: rgba(255,255,255,0.4); text-align: center; line-height: 1.5; padding: 15px; }
         
-        #hiddenCanvas { display: none; }
-        
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
+        .size-note { background: rgba(255,200,0,0.1); border: 1px solid rgba(255,200,0,0.3); border-radius: 10px; padding: 12px; margin-bottom: 15px; text-align: center; font-size: 11px; color: #ffcc00; }
     </style>
 </head>
 <body>
@@ -97,21 +77,20 @@
             <div class="preview-container">
                 <canvas id="previewCanvas"></canvas>
             </div>
-            <div class="preview-label">Preview - Tap button below to view in AR</div>
+            <div class="preview-label">Preview - Select content type below</div>
         </div>
         
-        <div class="status-message" id="statusMessage"></div>
-        
-        <button class="ar-button" id="generateBtn">
+        <a id="arLink" rel="ar" href="models/nature.usdz" class="ar-button">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg>
             View in Your Space
-        </button>
-        
-        <a id="arLink" rel="ar" href="#" download="led-wall.usdz" style="display:none;">
-            <img id="arImage">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" style="display:none;">
         </a>
         
-        <div class="ar-note">Opens iOS AR viewer with real-world scale</div>
+        <div class="ar-note">Opens iOS AR viewer · Real-world scale: 13.8 ft × 7.7 ft</div>
+        
+        <div class="size-note">
+            ⚠️ AR model shows default 13.8' × 7.7' size. Adjust sliders to see pricing for different sizes.
+        </div>
         
         <div class="config-section">
             <div class="section-title">Pricing</div>
@@ -188,23 +167,11 @@
         </div>
     </div>
     
-    <canvas id="hiddenCanvas"></canvas>
+    <canvas id="hiddenCanvas" style="display:none;"></canvas>
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
-        
-        function showStatus(message, type) {
-            const status = document.getElementById('statusMessage');
-            status.textContent = message;
-            status.className = `status-message show ${type}`;
-            if (type === 'success') {
-                setTimeout(() => { status.className = 'status-message'; }, 3000);
-            }
-        }
-        
+    <script>
         // ===================== CONFIG =====================
-        const GENRES = {
+        var GENRES = {
             worship: { label: 'Worship', description: 'Churches & Houses of Worship' },
             corporate: { label: 'Corporate', description: 'Lobbies & Boardrooms' },
             sports: { label: 'Sports', description: 'Sports Bars & Watch Parties' },
@@ -214,21 +181,20 @@
             nature: { label: 'Nature', description: 'Ambient & Demo Content' }
         };
         
-        const WIDTH_INCREMENTS = [3.9, 5.9, 7.9, 9.8, 11.8, 13.8, 15.7, 17.7, 19.7, 21.7, 23.6, 25.6, 27.6, 29.5, 31.5, 33.5, 35.4, 37.4, 39.4];
-        const HEIGHT_INCREMENTS = [2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.9, 10.0, 11.1, 12.2, 13.3, 14.4, 15.5, 16.6, 17.7, 18.9, 20.0, 21.1];
+        var WIDTH_INCREMENTS = [3.9, 5.9, 7.9, 9.8, 11.8, 13.8, 15.7, 17.7, 19.7, 21.7, 23.6, 25.6, 27.6, 29.5, 31.5, 33.5, 35.4, 37.4, 39.4];
+        var HEIGHT_INCREMENTS = [2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.9, 10.0, 11.1, 12.2, 13.3, 14.4, 15.5, 16.6, 17.7, 18.9, 20.0, 21.1];
         
-        const PRICING = {
+        var PRICING = {
             'P0.9':  { costPerSqft: 385, minViewingFt: 7,  label: 'Ultra-Premium' },
             'P1.25': { costPerSqft: 212, minViewingFt: 10, label: 'Premium' },
             'P1.9':  { costPerSqft: 185, minViewingFt: 15, label: 'Standard' },
             'P2.6':  { costPerSqft: 140, minViewingFt: 21, label: 'Commercial' }
         };
         
-        const MARGIN_DIVISOR = 0.218;
-        const FT_TO_M = 0.3048;
+        var MARGIN_DIVISOR = 0.218;
         
         // ===================== STATE =====================
-        const state = {
+        var state = {
             shape: 'rectangle',
             width: 13.8,
             height: 7.7,
@@ -237,22 +203,19 @@
         };
         
         // ===================== CANVAS =====================
-        const previewCanvas = document.getElementById('previewCanvas');
-        const previewCtx = previewCanvas.getContext('2d');
-        const hiddenCanvas = document.getElementById('hiddenCanvas');
-        const hiddenCtx = hiddenCanvas.getContext('2d');
-        
-        let frameCount = 0;
+        var previewCanvas = document.getElementById('previewCanvas');
+        var previewCtx = previewCanvas.getContext('2d');
+        var frameCount = 0;
         
         // ===================== HELPERS =====================
         function snapToIncrement(value, increments) {
-            return increments.reduce((prev, curr) => 
-                Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev
-            );
+            return increments.reduce(function(prev, curr) {
+                return Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev;
+            });
         }
         
         function getIncrementIndex(value, increments) {
-            for (let i = 0; i < increments.length; i++) {
+            for (var i = 0; i < increments.length; i++) {
                 if (Math.abs(increments[i] - value) < 0.1) return i;
             }
             return 0;
@@ -271,7 +234,7 @@
         }
         
         function getCostPerSqft(sqft, pitchKey) {
-            const baseCost = PRICING[pitchKey].costPerSqft;
+            var baseCost = PRICING[pitchKey].costPerSqft;
             if (sqft >= 175) return baseCost * 0.78;
             if (sqft >= 120) return baseCost * 0.85;
             if (sqft >= 80) return baseCost * 0.92;
@@ -279,9 +242,9 @@
         }
         
         function calculateDisplayPrice(width, height, pitch) {
-            const key = getPitchKey(pitch);
-            const sqft = width * height;
-            const cost = getCostPerSqft(sqft, key) * sqft;
+            var key = getPitchKey(pitch);
+            var sqft = width * height;
+            var cost = getCostPerSqft(sqft, key) * sqft;
             return Math.floor((cost / MARGIN_DIVISOR) / 10000) * 10000;
         }
         
@@ -291,8 +254,8 @@
         }
         
         function calcResolution(pitch) {
-            const wMM = state.width * 304.8;
-            const hMM = state.height * 304.8;
+            var wMM = state.width * 304.8;
+            var hMM = state.height * 304.8;
             return { w: Math.round(wMM / pitch), h: Math.round(hMM / pitch) };
         }
         
@@ -301,44 +264,47 @@
             document.getElementById('widthValue').textContent = state.width + ' ft';
             document.getElementById('heightValue').textContent = state.height + ' ft';
             
-            const price = calculateDisplayPrice(state.width, state.height, state.pixelPitch);
-            const key = getPitchKey(state.pixelPitch);
+            var price = calculateDisplayPrice(state.width, state.height, state.pixelPitch);
+            var key = getPitchKey(state.pixelPitch);
             document.getElementById('priceDisplay').textContent = formatPrice(price);
             document.getElementById('pitchLabel').textContent = key + ' ' + PRICING[key].label;
             document.getElementById('viewingDistance').textContent = PRICING[key].minViewingFt + '+ feet';
             
-            const res = calcResolution(state.pixelPitch);
-            const total = res.w * res.h;
-            const sqft = Math.round(state.width * state.height);
+            var res = calcResolution(state.pixelPitch);
+            var total = res.w * res.h;
+            var sqft = Math.round(state.width * state.height);
             document.getElementById('resolutionSpec').textContent = res.w + ' x ' + res.h;
             document.getElementById('pixelsSpec').textContent = total >= 1000000 ? (total / 1000000).toFixed(2) + 'M' : Math.round(total / 1000) + 'K';
             document.getElementById('areaSpec').textContent = sqft + ' sq ft';
             
             document.getElementById('genreDescription').textContent = GENRES[state.genre].description;
+            
+            // Update AR link
+            document.getElementById('arLink').href = 'models/' + state.genre + '.usdz';
         }
         
         // ===================== DRAWING =====================
-        function drawNature(ctx, w, h) {
-            const sky = ctx.createLinearGradient(0, 0, 0, h * 0.7);
+        function drawNature(ctx, w, h, t) {
+            var sky = ctx.createLinearGradient(0, 0, 0, h * 0.7);
             sky.addColorStop(0, '#0a0a20');
             sky.addColorStop(0.5, '#1a3a4a');
             sky.addColorStop(1, '#2a4a3a');
             ctx.fillStyle = sky;
             ctx.fillRect(0, 0, w, h);
             
-            for (let a = 0; a < 5; a++) {
+            for (var a = 0; a < 5; a++) {
                 ctx.save();
-                ctx.globalAlpha = 0.35;
-                const ag = ctx.createLinearGradient(0, h*0.1, 0, h*0.55);
+                ctx.globalAlpha = 0.3 + Math.sin(t*0.03 + a) * 0.15;
+                var ag = ctx.createLinearGradient(0, h*0.1, 0, h*0.55);
                 ag.addColorStop(0, 'transparent');
-                ag.addColorStop(0.3, `hsl(${120 + a*25},80%,50%)`);
-                ag.addColorStop(0.7, `hsl(${180 + a*20},70%,40%)`);
+                ag.addColorStop(0.3, 'hsl(' + (120 + a*25 + Math.sin(t*0.02)*20) + ',80%,50%)');
+                ag.addColorStop(0.7, 'hsl(' + (180 + a*20 + Math.sin(t*0.025)*15) + ',70%,40%)');
                 ag.addColorStop(1, 'transparent');
                 ctx.fillStyle = ag;
                 ctx.beginPath();
                 ctx.moveTo(0, h*0.15);
-                for (let ax = 0; ax <= w; ax += 15) {
-                    const ay = h*0.28 + Math.sin(ax*0.012 + a*0.8) * h*0.08;
+                for (var ax = 0; ax <= w; ax += 15) {
+                    var ay = h*0.28 + Math.sin(ax*0.012 + t*0.02 + a*0.8) * h*0.08;
                     ctx.lineTo(ax, ay);
                 }
                 ctx.lineTo(w, h*0.55);
@@ -348,10 +314,10 @@
             }
             
             ctx.fillStyle = '#fff';
-            for (let st = 0; st < 100; st++) {
-                const stx = (st * 193.7) % w;
-                const sty = (st * 71.3) % (h * 0.55);
-                ctx.globalAlpha = 0.4 + (st % 5) * 0.12;
+            for (var st = 0; st < 100; st++) {
+                var stx = (st * 193.7) % w;
+                var sty = (st * 71.3) % (h * 0.55);
+                ctx.globalAlpha = 0.4 + Math.sin(t*0.1 + st) * 0.3;
                 ctx.beginPath();
                 ctx.arc(stx, sty, 1 + (st % 3) * 0.5, 0, Math.PI*2);
                 ctx.fill();
@@ -384,46 +350,41 @@
             ctx.lineTo(w*0.91, h*0.52);
             ctx.fill();
             
-            const lake = ctx.createLinearGradient(0, h*0.82, 0, h);
+            var lake = ctx.createLinearGradient(0, h*0.82, 0, h);
             lake.addColorStop(0, 'rgba(20,50,70,0.9)');
             lake.addColorStop(1, 'rgba(10,30,50,0.95)');
             ctx.fillStyle = lake;
             ctx.fillRect(0, h*0.82, w, h*0.18);
-            
-            ctx.fillStyle = 'rgba(255,255,255,0.15)';
-            ctx.font = `bold ${Math.round(w*0.04)}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.fillText('PRESTIGE VISUAL', w/2, h*0.92);
         }
         
-        function drawWorship(ctx, w, h) {
-            const bg = ctx.createLinearGradient(0, 0, 0, h);
+        function drawWorship(ctx, w, h, t) {
+            var bg = ctx.createLinearGradient(0, 0, 0, h);
             bg.addColorStop(0, '#1a0a30');
             bg.addColorStop(0.5, '#2a1a50');
             bg.addColorStop(1, '#4a3020');
             ctx.fillStyle = bg;
             ctx.fillRect(0, 0, w, h);
             
-            for (let i = 0; i < 8; i++) {
+            for (var i = 0; i < 8; i++) {
                 ctx.save();
-                ctx.globalAlpha = 0.15;
-                const rayX = w * 0.5 + Math.sin(i*0.8) * w * 0.25;
-                const rg = ctx.createLinearGradient(rayX, h, rayX, 0);
-                rg.addColorStop(0, `hsl(${280 + i*12},70%,55%)`);
+                ctx.globalAlpha = 0.12 + Math.sin(t*0.04 + i) * 0.08;
+                var rayX = w * 0.5 + Math.sin(t*0.02 + i*0.8) * w * 0.25;
+                var rg = ctx.createLinearGradient(rayX, h, rayX, 0);
+                rg.addColorStop(0, 'hsl(' + (280 + i*12) + ',70%,55%)');
                 rg.addColorStop(1, 'transparent');
                 ctx.fillStyle = rg;
                 ctx.beginPath();
                 ctx.moveTo(rayX - 50, h);
-                ctx.lineTo(rayX - 15, 0);
-                ctx.lineTo(rayX + 15, 0);
+                ctx.lineTo(rayX - 15 + Math.sin(t*0.015)*20, 0);
+                ctx.lineTo(rayX + 15 + Math.sin(t*0.015)*20, 0);
                 ctx.lineTo(rayX + 50, h);
                 ctx.fill();
                 ctx.restore();
             }
             
             ctx.fillStyle = '#fff';
-            for (let s = 0; s < 60; s++) {
-                ctx.globalAlpha = 0.5 + (s % 4) * 0.1;
+            for (var s = 0; s < 60; s++) {
+                ctx.globalAlpha = 0.4 + Math.sin(t*0.12 + s) * 0.3;
                 ctx.beginPath();
                 ctx.arc((s * 137) % w, (s * 89) % (h*0.6), 1.2, 0, Math.PI*2);
                 ctx.fill();
@@ -431,31 +392,32 @@
             ctx.globalAlpha = 1;
             
             ctx.fillStyle = 'rgba(255,220,150,0.3)';
-            const cx = w/2, cy = h*0.45;
+            var cx = w/2, cy = h*0.45;
             ctx.fillRect(cx - 10, cy - 90, 20, 180);
             ctx.fillRect(cx - 60, cy - 50, 120, 20);
         }
         
-        function drawCorporate(ctx, w, h) {
-            const bg = ctx.createLinearGradient(0, 0, w, h);
+        function drawCorporate(ctx, w, h, t) {
+            var bg = ctx.createLinearGradient(0, 0, w, h);
             bg.addColorStop(0, '#0a2540');
             bg.addColorStop(1, '#0d47a1');
             ctx.fillStyle = bg;
             ctx.fillRect(0, 0, w, h);
             
-            ctx.strokeStyle = 'rgba(100,200,255,0.1)';
+            ctx.strokeStyle = 'rgba(100,200,255,0.15)';
             ctx.lineWidth = 1;
-            for (let gx = 0; gx < w; gx += 60) {
+            var gridOff = (t * 0.5) % 60;
+            for (var gx = -60 + gridOff; gx < w + 60; gx += 60) {
                 ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke();
             }
-            for (let gy = 0; gy < h; gy += 60) {
+            for (var gy = 0; gy < h; gy += 60) {
                 ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
             }
             
-            for (let b = 0; b < 8; b++) {
-                const bh = 60 + Math.abs(Math.sin(b*0.7)) * 140;
-                const bx = w*0.1 + b * (w*0.1);
-                const bgr = ctx.createLinearGradient(0, h*0.85 - bh, 0, h*0.85);
+            for (var b = 0; b < 8; b++) {
+                var bh = 60 + Math.abs(Math.sin(t*0.03 + b*0.6)) * 140;
+                var bx = w*0.1 + b * (w*0.1);
+                var bgr = ctx.createLinearGradient(0, h*0.85 - bh, 0, h*0.85);
                 bgr.addColorStop(0, '#00e5ff');
                 bgr.addColorStop(1, '#0066cc');
                 ctx.fillStyle = bgr;
@@ -463,17 +425,13 @@
             }
             
             ctx.fillStyle = '#fff';
-            ctx.font = `bold ${Math.round(w*0.05)}px Arial`;
+            ctx.font = 'bold ' + Math.round(w*0.05) + 'px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('QUARTERLY REPORT', w/2, h*0.15);
-            
-            ctx.fillStyle = 'rgba(0,200,255,0.8)';
-            ctx.font = `${Math.round(w*0.025)}px Arial`;
-            ctx.fillText('Performance Dashboard', w/2, h*0.22);
         }
         
-        function drawSports(ctx, w, h) {
-            const fg = ctx.createLinearGradient(0, 0, 0, h);
+        function drawSports(ctx, w, h, t) {
+            var fg = ctx.createLinearGradient(0, 0, 0, h);
             fg.addColorStop(0, '#1b5e20');
             fg.addColorStop(0.5, '#388e3c');
             fg.addColorStop(1, '#1b5e20');
@@ -491,34 +449,40 @@
             ctx.arc(w/2, h/2, w*0.1, 0, Math.PI*2);
             ctx.stroke();
             
+            var ballX = w*0.4 + Math.sin(t*0.04) * w*0.15;
+            var ballY = h*0.5 + Math.cos(t*0.05) * h*0.2;
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, w*0.02, 0, Math.PI*2);
+            ctx.fill();
+            
             ctx.fillStyle = 'rgba(0,0,0,0.9)';
             ctx.fillRect(w*0.25, h*0.02, w*0.5, h*0.18);
             ctx.strokeStyle = '#ffc107';
-            ctx.lineWidth = 3;
             ctx.strokeRect(w*0.25, h*0.02, w*0.5, h*0.18);
             
             ctx.fillStyle = '#fff';
-            ctx.font = `bold ${Math.round(w*0.03)}px Arial`;
+            ctx.font = 'bold ' + Math.round(w*0.03) + 'px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('HOME', w*0.38, h*0.08);
             ctx.fillText('AWAY', w*0.62, h*0.08);
             
             ctx.fillStyle = '#00ff00';
-            ctx.font = `bold ${Math.round(w*0.055)}px monospace`;
+            ctx.font = 'bold ' + Math.round(w*0.055) + 'px monospace';
             ctx.fillText('3 - 1', w/2, h*0.165);
         }
         
-        function drawConcert(ctx, w, h) {
+        function drawConcert(ctx, w, h, t) {
             ctx.fillStyle = '#080010';
             ctx.fillRect(0, 0, w, h);
             
-            const colors = ['#ff00ff','#00ffff','#ffff00','#ff0088','#00ff88','#8800ff'];
-            for (let i = 0; i < 10; i++) {
+            var colors = ['#ff00ff','#00ffff','#ffff00','#ff0088','#00ff88','#8800ff'];
+            for (var i = 0; i < 10; i++) {
                 ctx.save();
-                ctx.globalAlpha = 0.25;
-                const ang = Math.sin(i*0.5) * 0.5;
-                const topX = w/2 + Math.tan(ang) * h;
-                const lg = ctx.createLinearGradient(w/2, h, topX, 0);
+                ctx.globalAlpha = 0.2 + Math.sin(t*0.06 + i*0.5) * 0.1;
+                var ang = Math.sin(t*0.025 + i*0.5) * 0.5;
+                var topX = w/2 + Math.tan(ang) * h;
+                var lg = ctx.createLinearGradient(w/2, h, topX, 0);
                 lg.addColorStop(0, colors[i % colors.length]);
                 lg.addColorStop(1, 'transparent');
                 ctx.fillStyle = lg;
@@ -534,74 +498,82 @@
             ctx.fillStyle = '#000';
             ctx.beginPath();
             ctx.moveTo(0, h);
-            for (let cx = 0; cx <= w; cx += w*0.02) {
-                ctx.lineTo(cx, h - (h*0.08 + Math.sin(cx*0.008) * h*0.03));
+            for (var cx = 0; cx <= w; cx += w*0.02) {
+                ctx.lineTo(cx, h - (h*0.08 + Math.sin(t*0.1 + cx*0.008) * h*0.03));
             }
             ctx.lineTo(w, h);
             ctx.fill();
             
             ctx.fillStyle = '#fff';
-            ctx.font = `bold ${Math.round(w*0.1)}px Arial`;
+            ctx.font = 'bold ' + Math.round(w*0.1) + 'px Arial';
             ctx.textAlign = 'center';
             ctx.shadowColor = '#ff00ff';
-            ctx.shadowBlur = 30;
+            ctx.shadowBlur = 20 + Math.sin(t*0.1) * 10;
             ctx.fillText('LIVE', w/2, h*0.35);
             ctx.shadowBlur = 0;
         }
         
-        function drawRetail(ctx, w, h) {
-            const rg = ctx.createLinearGradient(0, 0, w, h);
-            rg.addColorStop(0, '#e91e63');
-            rg.addColorStop(0.5, '#9c27b0');
-            rg.addColorStop(1, '#673ab7');
+        function drawRetail(ctx, w, h, t) {
+            var hue = (t * 0.5) % 360;
+            var rg = ctx.createLinearGradient(0, 0, w, h);
+            rg.addColorStop(0, 'hsl(' + hue + ',80%,50%)');
+            rg.addColorStop(0.5, 'hsl(' + ((hue+40)%360) + ',70%,45%)');
+            rg.addColorStop(1, 'hsl(' + ((hue+80)%360) + ',75%,40%)');
             ctx.fillStyle = rg;
             ctx.fillRect(0, 0, w, h);
             
             ctx.fillStyle = 'rgba(255,255,255,0.8)';
-            for (let sp = 0; sp < 40; sp++) {
-                const spx = (sp * 73) % w;
-                const spy = (sp * 97) % h;
+            for (var sp = 0; sp < 40; sp++) {
+                var spx = (Math.sin(t*0.015 + sp*0.5) * 0.4 + 0.5) * w;
+                var spy = ((sp * 0.06 + t*0.002) % 1.1) * h;
                 ctx.beginPath();
-                ctx.arc(spx, spy, 3, 0, Math.PI*2);
+                ctx.arc(spx, spy, 3 + Math.sin(t*0.08 + sp) * 2, 0, Math.PI*2);
                 ctx.fill();
             }
             
+            ctx.save();
+            ctx.translate(w/2, h/2);
+            var scale = 1 + Math.sin(t*0.08) * 0.03;
+            ctx.scale(scale, scale);
             ctx.fillStyle = '#d32f2f';
             ctx.beginPath();
-            ctx.moveTo(w*0.15, h*0.35);
-            ctx.lineTo(w*0.85, h*0.35);
-            ctx.lineTo(w*0.88, h*0.5);
-            ctx.lineTo(w*0.85, h*0.65);
-            ctx.lineTo(w*0.15, h*0.65);
-            ctx.lineTo(w*0.12, h*0.5);
+            ctx.moveTo(-w*0.35, 0);
+            ctx.lineTo(-w*0.32, -h*0.15);
+            ctx.lineTo(w*0.32, -h*0.15);
+            ctx.lineTo(w*0.35, 0);
+            ctx.lineTo(w*0.32, h*0.15);
+            ctx.lineTo(-w*0.32, h*0.15);
             ctx.closePath();
             ctx.fill();
             
             ctx.fillStyle = '#fff';
-            ctx.font = `bold ${Math.round(w*0.12)}px Arial`;
+            ctx.font = 'bold ' + Math.round(w*0.12) + 'px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('SALE', w/2, h*0.5);
-            ctx.textBaseline = 'alphabetic';
+            ctx.fillText('SALE', 0, 0);
+            ctx.restore();
             
-            ctx.font = `bold ${Math.round(w*0.04)}px Arial`;
+            ctx.textBaseline = 'alphabetic';
+            ctx.font = 'bold ' + Math.round(w*0.04) + 'px Arial';
+            ctx.fillStyle = '#fff';
             ctx.fillText('UP TO 50% OFF', w/2, h*0.82);
         }
         
-        function drawCinema(ctx, w, h) {
+        function drawCinema(ctx, w, h, t) {
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, w, h);
             
-            const letterboxH = h * 0.12;
-            const viewH = h - letterboxH * 2;
+            var letterboxH = h * 0.12;
+            var viewH = h - letterboxH * 2;
             
-            const sky = ctx.createLinearGradient(0, letterboxH, 0, letterboxH + viewH * 0.6);
+            var sky = ctx.createLinearGradient(0, letterboxH, 0, letterboxH + viewH * 0.6);
             sky.addColorStop(0, '#1a1a3a');
-            sky.addColorStop(1, '#8a4a2a');
+            sky.addColorStop(1, 'hsl(' + (30 + Math.sin(t*0.01)*10) + ',60%,35%)');
             ctx.fillStyle = sky;
             ctx.fillRect(0, letterboxH, w, viewH * 0.6);
             
-            const sunGlow = ctx.createRadialGradient(w*0.7, letterboxH + viewH*0.3, 0, w*0.7, letterboxH + viewH*0.3, w*0.15);
+            var sunY = letterboxH + viewH*0.3 + Math.sin(t*0.008) * 10;
+            var sunGlow = ctx.createRadialGradient(w*0.7, sunY, 0, w*0.7, sunY, w*0.15);
             sunGlow.addColorStop(0, 'rgba(255,200,100,1)');
             sunGlow.addColorStop(0.4, 'rgba(255,150,50,0.5)');
             sunGlow.addColorStop(1, 'transparent');
@@ -625,152 +597,49 @@
             ctx.fillRect(0, h - letterboxH, w, letterboxH);
         }
         
-        function drawContent(ctx, w, h) {
+        function drawContent(ctx, w, h, t) {
             ctx.clearRect(0, 0, w, h);
             
             switch(state.genre) {
-                case 'worship': drawWorship(ctx, w, h); break;
-                case 'corporate': drawCorporate(ctx, w, h); break;
-                case 'sports': drawSports(ctx, w, h); break;
-                case 'cinema': drawCinema(ctx, w, h); break;
-                case 'concert': drawConcert(ctx, w, h); break;
-                case 'retail': drawRetail(ctx, w, h); break;
-                default: drawNature(ctx, w, h);
+                case 'worship': drawWorship(ctx, w, h, t); break;
+                case 'corporate': drawCorporate(ctx, w, h, t); break;
+                case 'sports': drawSports(ctx, w, h, t); break;
+                case 'cinema': drawCinema(ctx, w, h, t); break;
+                case 'concert': drawConcert(ctx, w, h, t); break;
+                case 'retail': drawRetail(ctx, w, h, t); break;
+                default: drawNature(ctx, w, h, t);
             }
         }
         
         // ===================== PREVIEW =====================
         function resizePreviewCanvas() {
-            const container = previewCanvas.parentElement;
-            const rect = container.getBoundingClientRect();
+            var container = previewCanvas.parentElement;
+            var rect = container.getBoundingClientRect();
             previewCanvas.width = rect.width * 2;
             previewCanvas.height = rect.height * 2;
         }
         
         function animatePreview() {
             frameCount++;
-            drawContent(previewCtx, previewCanvas.width, previewCanvas.height);
+            drawContent(previewCtx, previewCanvas.width, previewCanvas.height, frameCount);
             requestAnimationFrame(animatePreview);
         }
         
-        // ===================== AR GENERATION =====================
-        async function generateAndLaunchAR() {
-            const btn = document.getElementById('generateBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" stroke-dasharray="30 60"/></svg> Generating...';
-            showStatus('Creating 3D model...', 'info');
-            
-            try {
-                // Create texture canvas
-                const textureSize = 1024;
-                const aspectRatio = state.height / state.width;
-                hiddenCanvas.width = textureSize;
-                hiddenCanvas.height = Math.round(textureSize * aspectRatio);
-                
-                drawContent(hiddenCtx, hiddenCanvas.width, hiddenCanvas.height);
-                
-                // Convert canvas to image (better USDZ compatibility)
-                const dataURL = hiddenCanvas.toDataURL('image/png');
-                
-                // Load as image texture
-                const texture = await new Promise((resolve, reject) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        const tex = new THREE.Texture(img);
-                        tex.flipY = false;
-                        tex.colorSpace = THREE.SRGBColorSpace;
-                        tex.needsUpdate = true;
-                        resolve(tex);
-                    };
-                    img.onerror = reject;
-                    img.src = dataURL;
-                });
-                
-                // Create scene
-                const scene = new THREE.Scene();
-                
-                const widthM = state.width * FT_TO_M;
-                const heightM = state.height * FT_TO_M;
-                const depth = 0.08;
-                
-                // Screen mesh with texture
-                const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
-                const screenMat = new THREE.MeshStandardMaterial({ 
-                    map: texture,
-                    roughness: 0.5,
-                    metalness: 0.0,
-                    side: THREE.FrontSide
-                });
-                const screen = new THREE.Mesh(screenGeo, screenMat);
-                screen.position.z = depth / 2 + 0.003;
-                
-                // Frame
-                const frameGeo = new THREE.BoxGeometry(widthM + 0.06, heightM + 0.06, depth);
-                const frameMat = new THREE.MeshStandardMaterial({ 
-                    color: 0x1a1a1a, 
-                    roughness: 0.8, 
-                    metalness: 0.2 
-                });
-                const frame = new THREE.Mesh(frameGeo, frameMat);
-                
-                // Group
-                const group = new THREE.Group();
-                group.add(frame);
-                group.add(screen);
-                scene.add(group);
-                
-                // Lights - needed for StandardMaterial
-                scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-                const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-                dirLight.position.set(0, 0, 10);
-                scene.add(dirLight);
-                
-                // Export
-                const exporter = new USDZExporter();
-                const arrayBuffer = await exporter.parse(scene);
-                
-                const blob = new Blob([arrayBuffer], { type: 'model/vnd.usdz+zip' });
-                const url = URL.createObjectURL(blob);
-                
-                const arLink = document.getElementById('arLink');
-                arLink.href = url;
-                
-                const arImg = document.getElementById('arImage');
-                arImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-                
-                showStatus('Opening AR viewer...', 'success');
-                
-                setTimeout(() => arLink.click(), 100);
-                
-                setTimeout(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg> View in Your Space';
-                    URL.revokeObjectURL(url);
-                }, 5000);
-                
-            } catch (error) {
-                console.error('AR Error:', error);
-                showStatus(`Error: ${error.message}`, 'error');
-                btn.disabled = false;
-                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg> View in Your Space';
-            }
-        }
-        
         // ===================== EVENT HANDLERS =====================
-        document.querySelectorAll('[data-shape]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('[data-shape]').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('[data-shape]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('[data-shape]').forEach(function(b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 state.shape = btn.dataset.shape;
                 
-                const widthSlider = document.getElementById('widthSlider');
-                const heightSlider = document.getElementById('heightSlider');
+                var widthSlider = document.getElementById('widthSlider');
+                var heightSlider = document.getElementById('heightSlider');
                 
                 if (state.shape === 'custom') {
                     heightSlider.disabled = false;
                 } else {
                     heightSlider.disabled = true;
-                    const widthIdx = parseInt(widthSlider.value);
+                    var widthIdx = parseInt(widthSlider.value);
                     state.width = WIDTH_INCREMENTS[widthIdx];
                     
                     if (state.shape === 'rectangle') {
@@ -786,30 +655,30 @@
             });
         });
         
-        document.querySelectorAll('[data-pitch]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('[data-pitch]').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('[data-pitch]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('[data-pitch]').forEach(function(b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 state.pixelPitch = parseFloat(btn.dataset.pitch);
                 updateUI();
             });
         });
         
-        document.querySelectorAll('[data-genre]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('[data-genre]').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('[data-genre]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('[data-genre]').forEach(function(b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 state.genre = btn.dataset.genre;
                 updateUI();
             });
         });
         
-        document.getElementById('widthSlider').addEventListener('input', (e) => {
-            const idx = parseInt(e.target.value);
+        document.getElementById('widthSlider').addEventListener('input', function(e) {
+            var idx = parseInt(e.target.value);
             state.width = WIDTH_INCREMENTS[idx];
             
             if (state.shape !== 'custom') {
-                const heightSlider = document.getElementById('heightSlider');
+                var heightSlider = document.getElementById('heightSlider');
                 if (state.shape === 'rectangle') {
                     state.height = findBestHeightForRatio(state.width, 16/9);
                 } else if (state.shape === 'square') {
@@ -822,14 +691,12 @@
             updateUI();
         });
         
-        document.getElementById('heightSlider').addEventListener('input', (e) => {
+        document.getElementById('heightSlider').addEventListener('input', function(e) {
             if (state.shape === 'custom') {
                 state.height = HEIGHT_INCREMENTS[parseInt(e.target.value)];
                 updateUI();
             }
         });
-        
-        document.getElementById('generateBtn').addEventListener('click', generateAndLaunchAR);
         
         // ===================== INIT =====================
         resizePreviewCanvas();
