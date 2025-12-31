@@ -80,7 +80,7 @@
             <div class="preview-label">Preview - Select content type below</div>
         </div>
         
-        <a id="arLink" rel="ar" href="models/nature.usdz" class="ar-button">
+        <a id="arLink" rel="ar" href="nature.usdz" class="ar-button">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg>
             View in Your Space
             <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" style="display:none;">
@@ -280,7 +280,7 @@
             document.getElementById('genreDescription').textContent = GENRES[state.genre].description;
             
             // Update AR link
-            document.getElementById('arLink').href = 'models/' + state.genre + '.usdz';
+            document.getElementById('arLink').href = state.genre + '.usdz';
         }
         
         // ===================== DRAWING =====================
