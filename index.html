@@ -390,22 +390,22 @@
         
         // ===================== TEXTURE CREATION =====================
         async function createTextureFromImage(genre, wallAspect) {
-            // Step 1: Load the source image
+            // Load source image
             const srcImg = await loadImage(IMAGE_PATHS[genre]);
             console.log('Source image loaded:', srcImg.width, 'x', srcImg.height);
             
-            // Step 2: Use power-of-2 dimensions for better compatibility
+            // Power-of-2 canvas dimensions
             const canvasWidth = 2048;
-            const canvasHeight = 1024; // Fixed 2:1 for 16:9-ish
+            const canvasHeight = 1024;
             
             hiddenCanvas.width = canvasWidth;
             hiddenCanvas.height = canvasHeight;
             
-            // Step 3: Fill with black background
+            // Fill black
             hiddenCtx.fillStyle = '#000000';
             hiddenCtx.fillRect(0, 0, canvasWidth, canvasHeight);
             
-            // Step 4: Calculate source crop to match wall aspect ratio
+            // Calculate crop for aspect ratio
             const imgAspect = srcImg.width / srcImg.height;
             let sx, sy, sw, sh;
             
@@ -421,19 +421,16 @@
                 sy = (srcImg.height - sh) / 2;
             }
             
-            // Step 5: Draw image to canvas (cover the entire canvas)
+            // Draw to canvas
             hiddenCtx.drawImage(srcImg, sx, sy, sw, sh, 0, 0, canvasWidth, canvasHeight);
             console.log('Canvas drawn');
             
-            // Step 6: Convert canvas to data URL
+            // Convert to data URL then back to image for proper texture
             const dataUrl = hiddenCanvas.toDataURL('image/png');
-            console.log('Data URL created, length:', dataUrl.length);
-            
-            // Step 7: Load the data URL as a new image
             const textureImg = await loadImage(dataUrl);
-            console.log('Texture image loaded:', textureImg.width, 'x', textureImg.height);
+            console.log('Texture image ready:', textureImg.width, 'x', textureImg.height);
             
-            // Step 8: Create Three.js texture from the image
+            // Create Three.js texture
             const texture = new THREE.Texture(textureImg);
             texture.colorSpace = THREE.SRGBColorSpace;
             texture.flipY = true;
@@ -463,16 +460,19 @@
                 const heightM = state.height * FT_TO_M;
                 const depth = 0.08;
                 
-                // Screen mesh with texture
+                // IMPORTANT: Use MeshStandardMaterial - USDZ only supports this!
+                // Use map for the texture (not emissiveMap) for proper display
                 const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
-                const screenMat = new THREE.MeshBasicMaterial({ 
+                const screenMat = new THREE.MeshStandardMaterial({ 
                     map: texture,
+                    roughness: 0.5,
+                    metalness: 0.0,
                     side: THREE.FrontSide
                 });
                 const screen = new THREE.Mesh(screenGeo, screenMat);
                 screen.position.z = depth / 2 + 0.003;
                 
-                // Frame mesh
+                // Frame
                 const frameGeo = new THREE.BoxGeometry(widthM + 0.06, heightM + 0.06, depth);
                 const frameMat = new THREE.MeshStandardMaterial({ 
                     color: 0x1a1a1a, 
@@ -481,41 +481,41 @@
                 });
                 const frame = new THREE.Mesh(frameGeo, frameMat);
                 
-                // Group and add to scene
+                // Group
                 const group = new THREE.Group();
                 group.add(frame);
                 group.add(screen);
                 scene.add(group);
                 
-                // Light
-                scene.add(new THREE.AmbientLight(0xffffff, 2));
+                // Lights - important for MeshStandardMaterial to be visible
+                const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+                scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+                directionalLight.position.set(0, 0, 5);
+                scene.add(directionalLight);
                 
                 showStatus('Exporting to USDZ...', 'info');
                 
-                // Export to USDZ
+                // Export
                 const exporter = new USDZExporter();
                 const arrayBuffer = await exporter.parse(scene);
                 
                 console.log('USDZ exported, size:', arrayBuffer.byteLength);
                 
-                // Create blob and URL
                 const blob = new Blob([arrayBuffer], { type: 'model/vnd.usdz+zip' });
                 const url = URL.createObjectURL(blob);
                 
-                // Set up AR link
                 const arLink = document.getElementById('arLink');
                 arLink.href = url;
                 
-                // Set the AR image to the canvas content
                 const arImg = document.getElementById('arImage');
                 arImg.src = hiddenCanvas.toDataURL('image/jpeg', 0.8);
                 
                 showStatus('Opening AR viewer...', 'success');
                 
-                // Trigger AR view
                 setTimeout(() => arLink.click(), 100);
                 
-                // Reset button
                 setTimeout(() => {
                     btn.disabled = false;
                     btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg> View in Your Space';
