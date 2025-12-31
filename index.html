@@ -84,6 +84,7 @@
         .disclaimer { font-size: 10px; color: rgba(255,255,255,0.4); text-align: center; line-height: 1.5; padding: 15px; }
         
         #textureCanvas { display: none; }
+        #renderCanvas { display: none; }
         
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
@@ -208,19 +209,13 @@
     </div>
     
     <canvas id="textureCanvas"></canvas>
+    <canvas id="renderCanvas" width="512" height="512"></canvas>
 
     <script type="module">
         import * as THREE from 'three';
         import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
         
         // ===================== CONFIG =====================
-        const IMAGE_PATHS = {
-            sports: 'images/sports.jpg',
-            worship: 'images/worship.jpg',
-            corporate: 'images/corporate.jpg',
-            concert: 'images/concert.jpg'
-        };
-        
         const GENRES = {
             worship: { 
                 description: 'Churches & Houses of Worship',
@@ -273,6 +268,22 @@
         const previewContainer = document.getElementById('previewContainer');
         const textureCanvas = document.getElementById('textureCanvas');
         const textureCtx = textureCanvas.getContext('2d');
+        const renderCanvas = document.getElementById('renderCanvas');
+        
+        // ===================== THREE.JS SETUP =====================
+        let renderer;
+        try {
+            renderer = new THREE.WebGLRenderer({ 
+                canvas: renderCanvas, 
+                antialias: true,
+                preserveDrawingBuffer: true 
+            });
+            renderer.setSize(512, 512);
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            console.log('WebGL Renderer created');
+        } catch (e) {
+            console.error('Failed to create WebGL renderer:', e);
+        }
         
         // ===================== DRAW CONTENT TO CANVAS =====================
         function drawGenreContent(ctx, width, height, genre) {
@@ -291,9 +302,9 @@
             // Add some visual elements
             ctx.fillStyle = 'rgba(255,255,255,0.1)';
             for (let i = 0; i < 20; i++) {
-                const x = Math.random() * width;
-                const y = Math.random() * height;
-                const r = Math.random() * 100 + 20;
+                const x = (i * 123.456) % width;
+                const y = (i * 78.901) % height;
+                const r = ((i * 45.678) % 80) + 20;
                 ctx.beginPath();
                 ctx.arc(x, y, r, 0, Math.PI * 2);
                 ctx.fill();
@@ -442,57 +453,46 @@
             showStatus('Creating texture...', 'info');
             
             try {
-                // Create texture canvas with power-of-2 dimensions
+                // Create texture canvas - use power of 2 dimensions
                 const texWidth = 1024;
                 const texHeight = 512;
                 textureCanvas.width = texWidth;
                 textureCanvas.height = texHeight;
                 
-                // Draw content to texture canvas
+                // Draw content
                 drawGenreContent(textureCtx, texWidth, texHeight, state.genre);
-                
-                console.log('Texture canvas drawn:', texWidth, 'x', texHeight);
-                
-                // Convert canvas to data URL
-                const dataURL = textureCanvas.toDataURL('image/png');
-                console.log('Data URL created, length:', dataURL.length);
-                
-                // Load data URL as image
-                const img = new Image();
-                await new Promise((resolve, reject) => {
-                    img.onload = resolve;
-                    img.onerror = reject;
-                    img.src = dataURL;
-                });
-                
-                console.log('Image loaded from data URL:', img.width, 'x', img.height);
+                console.log('Texture canvas drawn');
                 
                 showStatus('Building 3D model...', 'info');
                 
-                // Create Three.js texture from image
-                const texture = new THREE.Texture(img);
-                texture.flipY = false;  // USDZ expects flipY = false
-                texture.colorSpace = THREE.SRGBColorSpace;
-                texture.needsUpdate = true;
-                
                 // Create scene
                 const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x000000);
                 
                 const widthM = state.width * FT_TO_M;
                 const heightM = state.height * FT_TO_M;
                 const depth = 0.08;
                 
-                // Screen with MeshStandardMaterial (REQUIRED for USDZ)
+                // Create CanvasTexture
+                const texture = new THREE.CanvasTexture(textureCanvas);
+                texture.flipY = false;
+                texture.colorSpace = THREE.SRGBColorSpace;
+                texture.needsUpdate = true;
+                
+                console.log('Texture created from canvas');
+                
+                // Screen mesh - MeshStandardMaterial required for USDZ
                 const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
                 const screenMat = new THREE.MeshStandardMaterial({ 
                     map: texture,
                     roughness: 0.3,
-                    metalness: 0.0
+                    metalness: 0.0,
+                    side: THREE.DoubleSide
                 });
                 const screen = new THREE.Mesh(screenGeo, screenMat);
                 screen.position.z = depth / 2 + 0.003;
                 
-                // Frame
+                // Frame mesh
                 const frameGeo = new THREE.BoxGeometry(widthM + 0.06, heightM + 0.06, depth);
                 const frameMat = new THREE.MeshStandardMaterial({ 
                     color: 0x1a1a1a, 
@@ -508,11 +508,33 @@
                 scene.add(group);
                 
                 // Lighting
-                scene.add(new THREE.AmbientLight(0xffffff, 2));
+                const ambientLight = new THREE.AmbientLight(0xffffff, 2);
+                scene.add(ambientLight);
+                
+                const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+                dirLight.position.set(0, 0, 5);
+                scene.add(dirLight);
+                
+                // Camera for rendering
+                const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+                camera.position.set(0, 0, Math.max(widthM, heightM) * 2);
+                camera.lookAt(0, 0, 0);
+                
+                // IMPORTANT: Render the scene to initialize textures
+                showStatus('Rendering scene...', 'info');
+                renderer.render(scene, camera);
+                console.log('Scene rendered to initialize textures');
+                
+                // Force texture upload to GPU
+                renderer.initTexture(texture);
+                console.log('Texture initialized on GPU');
+                
+                // Render again
+                renderer.render(scene, camera);
                 
                 showStatus('Exporting to USDZ...', 'info');
                 
-                // Export
+                // Export to USDZ
                 const exporter = new USDZExporter();
                 const arrayBuffer = await exporter.parse(scene);
                 
@@ -525,7 +547,7 @@
                 arLink.href = url;
                 
                 const arImg = document.getElementById('arImage');
-                arImg.src = dataURL;
+                arImg.src = textureCanvas.toDataURL('image/jpeg', 0.8);
                 
                 showStatus('Opening AR viewer...', 'success');
                 
