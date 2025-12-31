@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>Prestige Visual System - AR LED Video Wall Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -20,12 +21,13 @@
         #previewCanvas { width: 100%; height: 100%; display: block; }
         .preview-label { text-align: center; font-size: 12px; color: rgba(255,255,255,0.5); }
         
-        /* AR Link styled as button */
         .ar-button { display: flex; width: 100%; padding: 18px; font-size: 18px; font-weight: 700; color: #000; background: linear-gradient(135deg, #00ff88, #00d4ff); border: none; border-radius: 50px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; align-items: center; justify-content: center; gap: 10px; text-decoration: none; }
         .ar-button:active { transform: scale(0.98); }
+        .ar-button.loading { background: linear-gradient(135deg, #888, #666); pointer-events: none; }
         .ar-button svg { width: 24px; height: 24px; }
         
         .ar-note { text-align: center; font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 20px; }
+        #arDimensions { color: #00d4ff; font-weight: 600; }
         
         .config-section { background: rgba(0,0,0,0.3); border-radius: 16px; padding: 20px; margin-bottom: 15px; border: 1px solid rgba(0,200,255,0.15); }
         .section-title { font-size: 11px; color: #00d4ff; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 15px; font-weight: 600; }
@@ -62,8 +64,6 @@
         .spec-value { font-size: 14px; color: #00d4ff; font-weight: 600; }
         
         .disclaimer { font-size: 10px; color: rgba(255,255,255,0.4); text-align: center; line-height: 1.5; padding: 15px; }
-        
-        .size-note { background: rgba(255,200,0,0.1); border: 1px solid rgba(255,200,0,0.3); border-radius: 10px; padding: 12px; margin-bottom: 15px; text-align: center; font-size: 11px; color: #ffcc00; }
     </style>
 </head>
 <body>
@@ -80,17 +80,13 @@
             <div class="preview-label">Preview - Select content type below</div>
         </div>
         
-        <a id="arLink" rel="ar" href="nature.usdz" class="ar-button">
+        <a id="arLink" rel="ar" href="#" class="ar-button">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg>
-            View in Your Space
-            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" style="display:none;">
+            <span id="arButtonText">View in Your Space</span>
+            <img id="arImg" style="display:none;">
         </a>
         
-        <div class="ar-note">Opens iOS AR viewer · Real-world scale: 13.8 ft × 7.7 ft</div>
-        
-        <div class="size-note">
-            ⚠️ AR model shows default 13.8' × 7.7' size. Adjust sliders to see pricing for different sizes.
-        </div>
+        <div class="ar-note">Opens iOS AR viewer · Size: <span id="arDimensions">13.8 ft × 7.7 ft</span></div>
         
         <div class="config-section">
             <div class="section-title">Pricing</div>
@@ -167,10 +163,9 @@
         </div>
     </div>
     
-    <canvas id="hiddenCanvas" style="display:none;"></canvas>
+    <canvas id="textureCanvas" style="display:none;"></canvas>
 
     <script>
-        // ===================== CONFIG =====================
         var GENRES = {
             worship: { label: 'Worship', description: 'Churches & Houses of Worship' },
             corporate: { label: 'Corporate', description: 'Lobbies & Boardrooms' },
@@ -192,22 +187,17 @@
         };
         
         var MARGIN_DIVISOR = 0.218;
+        var FT_TO_M = 0.3048;
         
-        // ===================== STATE =====================
-        var state = {
-            shape: 'rectangle',
-            width: 13.8,
-            height: 7.7,
-            pixelPitch: 1.9,
-            genre: 'nature'
-        };
+        var state = { shape: 'rectangle', width: 13.8, height: 7.7, pixelPitch: 1.9, genre: 'nature' };
+        var currentUsdzUrl = null;
         
-        // ===================== CANVAS =====================
         var previewCanvas = document.getElementById('previewCanvas');
         var previewCtx = previewCanvas.getContext('2d');
+        var textureCanvas = document.getElementById('textureCanvas');
+        var textureCtx = textureCanvas.getContext('2d');
         var frameCount = 0;
         
-        // ===================== HELPERS =====================
         function snapToIncrement(value, increments) {
             return increments.reduce(function(prev, curr) {
                 return Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev;
@@ -259,399 +249,352 @@
             return { w: Math.round(wMM / pitch), h: Math.round(hMM / pitch) };
         }
         
-        // ===================== UI =====================
-        function updateUI() {
+        function generateUSDA(widthM, heightM, depthM) {
+            var hw = widthM / 2;
+            var hh = heightM / 2;
+            var hd = depthM / 2;
+            var fo = 0.03;
+            
+            return '#usda 1.0\n(\n    defaultPrim = "LEDWall"\n    metersPerUnit = 1\n    upAxis = "Y"\n)\n\ndef Xform "LEDWall" (\n    assetInfo = {\n        string name = "LED Video Wall"\n    }\n    kind = "component"\n)\n{\n    def Mesh "Frame"\n    {\n        float3[] extent = [(' + (-(hw+fo)).toFixed(4) + ', ' + (-(hh+fo)).toFixed(4) + ', ' + (-hd).toFixed(4) + '), (' + (hw+fo).toFixed(4) + ', ' + (hh+fo).toFixed(4) + ', ' + hd.toFixed(4) + ')]\n        int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]\n        int[] faceVertexIndices = [0, 1, 3, 2, 4, 6, 7, 5, 0, 4, 5, 1, 2, 3, 7, 6, 0, 2, 6, 4, 1, 5, 7, 3]\n        point3f[] points = [\n            (' + (-(hw+fo)).toFixed(4) + ', ' + (-(hh+fo)).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (hw+fo).toFixed(4) + ', ' + (-(hh+fo)).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (-(hw+fo)).toFixed(4) + ', ' + (hh+fo).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (hw+fo).toFixed(4) + ', ' + (hh+fo).toFixed(4) + ', ' + hd.toFixed(4) + '),\n            (' + (-(hw+fo)).toFixed(4) + ', ' + (-(hh+fo)).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (hw+fo).toFixed(4) + ', ' + (-(hh+fo)).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (-(hw+fo)).toFixed(4) + ', ' + (hh+fo).toFixed(4) + ', ' + (-hd).toFixed(4) + '),\n            (' + (hw+fo).toFixed(4) + ', ' + (hh+fo).toFixed(4) + ', ' + (-hd).toFixed(4) + ')\n        ]\n        color3f[] primvars:displayColor = [(0.1, 0.1, 0.1)]\n        uniform token subdivisionScheme = "none"\n        rel material:binding = </LEDWall/Materials/FrameMaterial>\n    }\n    \n    def Mesh "Screen"\n    {\n        float3[] extent = [(' + (-hw).toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.003).toFixed(4) + '), (' + hw.toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.003).toFixed(4) + ')]\n        int[] faceVertexCounts = [4]\n        int[] faceVertexIndices = [0, 1, 3, 2]\n        point3f[] points = [\n            (' + (-hw).toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.003).toFixed(4) + '),\n            (' + hw.toFixed(4) + ', ' + (-hh).toFixed(4) + ', ' + (hd+0.003).toFixed(4) + '),\n            (' + (-hw).toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.003).toFixed(4) + '),\n            (' + hw.toFixed(4) + ', ' + hh.toFixed(4) + ', ' + (hd+0.003).toFixed(4) + ')\n        ]\n        texCoord2f[] primvars:st = [(0, 0), (1, 0), (0, 1), (1, 1)] (\n            interpolation = "vertex"\n        )\n        int[] primvars:st:indices = [0, 1, 3, 2]\n        uniform token subdivisionScheme = "none"\n        rel material:binding = </LEDWall/Materials/ScreenMaterial>\n    }\n    \n    def Scope "Materials"\n    {\n        def Material "FrameMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/FrameMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor = (0.1, 0.1, 0.1)\n                float inputs:roughness = 0.8\n                float inputs:metallic = 0.2\n                token outputs:surface\n            }\n        }\n        \n        def Material "ScreenMaterial"\n        {\n            token outputs:surface.connect = </LEDWall/Materials/ScreenMaterial/PBRShader.outputs:surface>\n            def Shader "PBRShader"\n            {\n                uniform token info:id = "UsdPreviewSurface"\n                color3f inputs:diffuseColor.connect = </LEDWall/Materials/ScreenMaterial/Texture.outputs:rgb>\n                color3f inputs:emissiveColor.connect = </LEDWall/Materials/ScreenMaterial/Texture.outputs:rgb>\n                float inputs:roughness = 0.3\n                float inputs:metallic = 0.0\n                token outputs:surface\n            }\n            def Shader "Texture"\n            {\n                uniform token info:id = "UsdUVTexture"\n                asset inputs:file = @texture.png@\n                float2 inputs:st.connect = </LEDWall/Materials/ScreenMaterial/TexCoordReader.outputs:result>\n                token inputs:wrapS = "clamp"\n                token inputs:wrapT = "clamp"\n                float3 outputs:rgb\n            }\n            def Shader "TexCoordReader"\n            {\n                uniform token info:id = "UsdPrimvarReader_float2"\n                string inputs:varname = "st"\n                float2 outputs:result\n            }\n        }\n    }\n}\n';
+        }
+        
+        function generateTexture(genre, width, height) {
+            var aspectRatio = width / height;
+            var texW = 1024;
+            var texH = Math.round(texW / aspectRatio);
+            textureCanvas.width = texW;
+            textureCanvas.height = texH;
+            var ctx = textureCtx;
+            var w = texW, h = texH;
+            
+            if (genre === 'worship') {
+                var bg = ctx.createLinearGradient(0, 0, 0, h);
+                bg.addColorStop(0, '#1a0a30'); bg.addColorStop(0.5, '#2a1a50'); bg.addColorStop(1, '#4a3020');
+                ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+                for (var i = 0; i < 8; i++) {
+                    ctx.globalAlpha = 0.15;
+                    var rayX = w * 0.5 + Math.sin(i*0.8) * w * 0.25;
+                    var rg = ctx.createLinearGradient(rayX, h, rayX, 0);
+                    rg.addColorStop(0, 'hsl(' + (280 + i*12) + ',70%,55%)'); rg.addColorStop(1, 'transparent');
+                    ctx.fillStyle = rg;
+                    ctx.beginPath(); ctx.moveTo(rayX - 50, h); ctx.lineTo(rayX - 15, 0); ctx.lineTo(rayX + 15, 0); ctx.lineTo(rayX + 50, h); ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = 'rgba(255,220,150,0.4)';
+                ctx.fillRect(w/2 - 12, h*0.45 - 100, 24, 200);
+                ctx.fillRect(w/2 - 70, h*0.45 - 55, 140, 24);
+            } else if (genre === 'corporate') {
+                var bg = ctx.createLinearGradient(0, 0, w, h);
+                bg.addColorStop(0, '#0a2540'); bg.addColorStop(1, '#0d47a1');
+                ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+                ctx.strokeStyle = 'rgba(100,200,255,0.15)'; ctx.lineWidth = 1;
+                for (var gx = 0; gx < w; gx += 60) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke(); }
+                for (var gy = 0; gy < h; gy += 60) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke(); }
+                var bars = [0.6, 0.8, 0.5, 0.9, 0.7, 0.95, 0.75, 0.85];
+                for (var b = 0; b < 8; b++) {
+                    var bh = bars[b] * h * 0.5;
+                    var bgr = ctx.createLinearGradient(0, h*0.85 - bh, 0, h*0.85);
+                    bgr.addColorStop(0, '#00e5ff'); bgr.addColorStop(1, '#0066cc');
+                    ctx.fillStyle = bgr; ctx.fillRect(w*0.1 + b * (w*0.1), h*0.85 - bh, w*0.07, bh);
+                }
+                ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.06) + 'px Arial'; ctx.textAlign = 'center';
+                ctx.fillText('QUARTERLY REPORT', w/2, h*0.15);
+            } else if (genre === 'sports') {
+                var fg = ctx.createLinearGradient(0, 0, 0, h);
+                fg.addColorStop(0, '#1b5e20'); fg.addColorStop(0.5, '#2e7d32'); fg.addColorStop(1, '#1b5e20');
+                ctx.fillStyle = fg; ctx.fillRect(0, 0, w, h);
+                var mx = w * 0.05, my = h * 0.15, fw = w - 2 * mx, fh = h - 2 * my;
+                ctx.fillStyle = '#0033aa'; ctx.fillRect(mx, my, fw * 0.1, fh);
+                ctx.fillStyle = '#aa0000'; ctx.fillRect(w - mx - fw * 0.1, my, fw * 0.1, fh);
+                ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
+                for (var i = 0; i <= 10; i++) { var x = mx + fw * 0.1 + fw * 0.8 * i / 10; ctx.beginPath(); ctx.moveTo(x, my); ctx.lineTo(x, h - my); ctx.stroke(); }
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(mx, my, fw, fh);
+                ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(w*0.2, h*0.01, w*0.6, h*0.12);
+                ctx.strokeStyle = '#ffc107'; ctx.lineWidth = 3; ctx.strokeRect(w*0.2, h*0.01, w*0.6, h*0.12);
+                ctx.fillStyle = '#00ff00'; ctx.font = 'bold ' + Math.round(w*0.045) + 'px monospace'; ctx.textAlign = 'center';
+                ctx.fillText('24', w*0.32, h*0.105); ctx.fillText('17', w*0.68, h*0.105);
+            } else if (genre === 'concert') {
+                ctx.fillStyle = '#080010'; ctx.fillRect(0, 0, w, h);
+                var colors = ['#ff00ff','#00ffff','#ffff00','#ff0088','#00ff88','#8800ff'];
+                for (var i = 0; i < 10; i++) {
+                    ctx.globalAlpha = 0.25;
+                    var ang = Math.sin(i*0.5) * 0.5;
+                    var topX = w/2 + Math.tan(ang) * h;
+                    var lg = ctx.createLinearGradient(w/2, h, topX, 0);
+                    lg.addColorStop(0, colors[i % colors.length]); lg.addColorStop(1, 'transparent');
+                    ctx.fillStyle = lg;
+                    ctx.beginPath(); ctx.moveTo(w/2, h); ctx.lineTo(topX - w*0.06, 0); ctx.lineTo(topX + w*0.06, 0); ctx.closePath(); ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#000'; ctx.beginPath(); ctx.moveTo(0, h);
+                for (var cx = 0; cx <= w; cx += w*0.02) { ctx.lineTo(cx, h - (h*0.08 + Math.sin(cx*0.02) * h*0.03)); }
+                ctx.lineTo(w, h); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.12) + 'px Arial'; ctx.textAlign = 'center';
+                ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 30; ctx.fillText('LIVE', w/2, h*0.4); ctx.shadowBlur = 0;
+            } else if (genre === 'retail') {
+                var rg = ctx.createLinearGradient(0, 0, w, h);
+                rg.addColorStop(0, '#e91e63'); rg.addColorStop(0.5, '#9c27b0'); rg.addColorStop(1, '#673ab7');
+                ctx.fillStyle = rg; ctx.fillRect(0, 0, w, h);
+                ctx.fillStyle = '#d32f2f';
+                ctx.beginPath(); ctx.moveTo(w*0.15, h*0.35); ctx.lineTo(w*0.85, h*0.35); ctx.lineTo(w*0.88, h*0.5); ctx.lineTo(w*0.85, h*0.65); ctx.lineTo(w*0.15, h*0.65); ctx.lineTo(w*0.12, h*0.5); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.14) + 'px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('SALE', w/2, h*0.5);
+                ctx.textBaseline = 'alphabetic'; ctx.font = 'bold ' + Math.round(w*0.045) + 'px Arial';
+                ctx.fillText('UP TO 50% OFF', w/2, h*0.82);
+            } else if (genre === 'cinema') {
+                ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+                var lbH = h * 0.12, viewH = h - lbH * 2;
+                var sky = ctx.createLinearGradient(0, lbH, 0, lbH + viewH * 0.6);
+                sky.addColorStop(0, '#1a1a3a'); sky.addColorStop(1, '#8b4513');
+                ctx.fillStyle = sky; ctx.fillRect(0, lbH, w, viewH * 0.6);
+                var sunGlow = ctx.createRadialGradient(w*0.7, lbH + viewH*0.3, 0, w*0.7, lbH + viewH*0.3, w*0.15);
+                sunGlow.addColorStop(0, 'rgba(255,200,100,1)'); sunGlow.addColorStop(0.4, 'rgba(255,150,50,0.5)'); sunGlow.addColorStop(1, 'transparent');
+                ctx.fillStyle = sunGlow; ctx.fillRect(0, lbH, w, viewH);
+                ctx.fillStyle = '#1a1a2a'; ctx.beginPath(); ctx.moveTo(0, lbH + viewH * 0.6);
+                ctx.lineTo(w*0.2, lbH + viewH * 0.4); ctx.lineTo(w*0.4, lbH + viewH * 0.55); ctx.lineTo(w*0.6, lbH + viewH * 0.35);
+                ctx.lineTo(w*0.8, lbH + viewH * 0.5); ctx.lineTo(w, lbH + viewH * 0.45); ctx.lineTo(w, lbH + viewH); ctx.lineTo(0, lbH + viewH); ctx.fill();
+                ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, lbH); ctx.fillRect(0, h - lbH, w, lbH);
+            } else {
+                var sky = ctx.createLinearGradient(0, 0, 0, h * 0.7);
+                sky.addColorStop(0, '#0a0a20'); sky.addColorStop(0.5, '#1a3a4a'); sky.addColorStop(1, '#2a4a3a');
+                ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+                for (var a = 0; a < 5; a++) {
+                    ctx.globalAlpha = 0.35;
+                    var ag = ctx.createLinearGradient(0, h*0.1, 0, h*0.55);
+                    ag.addColorStop(0, 'transparent'); ag.addColorStop(0.3, 'hsl(' + (120 + a*25) + ',80%,50%)');
+                    ag.addColorStop(0.7, 'hsl(' + (180 + a*20) + ',70%,40%)'); ag.addColorStop(1, 'transparent');
+                    ctx.fillStyle = ag; ctx.beginPath(); ctx.moveTo(0, h*0.15);
+                    for (var ax = 0; ax <= w; ax += 15) { ctx.lineTo(ax, h*0.28 + Math.sin(ax*0.012 + a*0.8) * h*0.08); }
+                    ctx.lineTo(w, h*0.55); ctx.lineTo(0, h*0.55); ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#1a1a2e'; ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(0, h*0.72);
+                ctx.lineTo(w*0.12, h*0.52); ctx.lineTo(w*0.28, h*0.68); ctx.lineTo(w*0.48, h*0.38);
+                ctx.lineTo(w*0.68, h*0.58); ctx.lineTo(w*0.85, h*0.42); ctx.lineTo(w, h*0.58); ctx.lineTo(w, h); ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.beginPath(); ctx.moveTo(w*0.48, h*0.38); ctx.lineTo(w*0.42, h*0.50); ctx.lineTo(w*0.54, h*0.50); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(w*0.85, h*0.42); ctx.lineTo(w*0.79, h*0.52); ctx.lineTo(w*0.91, h*0.52); ctx.fill();
+                var lake = ctx.createLinearGradient(0, h*0.82, 0, h);
+                lake.addColorStop(0, 'rgba(20,50,70,0.9)'); lake.addColorStop(1, 'rgba(10,30,50,0.95)');
+                ctx.fillStyle = lake; ctx.fillRect(0, h*0.82, w, h*0.18);
+            }
+            return textureCanvas.toDataURL('image/png');
+        }
+        
+        async function generateUSDZ() {
+            var widthM = state.width * FT_TO_M;
+            var heightM = state.height * FT_TO_M;
+            var depthM = 0.08;
+            var usdaContent = generateUSDA(widthM, heightM, depthM);
+            var textureDataUrl = generateTexture(state.genre, state.width, state.height);
+            var textureBase64 = textureDataUrl.split(',')[1];
+            var textureBytes = Uint8Array.from(atob(textureBase64), function(c) { return c.charCodeAt(0); });
+            var zip = new JSZip();
+            zip.file('model.usda', usdaContent);
+            zip.file('texture.png', textureBytes);
+            var blob = await zip.generateAsync({type: 'blob', compression: 'STORE'});
+            if (currentUsdzUrl) URL.revokeObjectURL(currentUsdzUrl);
+            currentUsdzUrl = URL.createObjectURL(blob);
+            return currentUsdzUrl;
+        }
+        
+        async function updateUI() {
             document.getElementById('widthValue').textContent = state.width + ' ft';
             document.getElementById('heightValue').textContent = state.height + ' ft';
-            
             var price = calculateDisplayPrice(state.width, state.height, state.pixelPitch);
             var key = getPitchKey(state.pixelPitch);
             document.getElementById('priceDisplay').textContent = formatPrice(price);
             document.getElementById('pitchLabel').textContent = key + ' ' + PRICING[key].label;
             document.getElementById('viewingDistance').textContent = PRICING[key].minViewingFt + '+ feet';
-            
             var res = calcResolution(state.pixelPitch);
             var total = res.w * res.h;
             var sqft = Math.round(state.width * state.height);
             document.getElementById('resolutionSpec').textContent = res.w + ' x ' + res.h;
             document.getElementById('pixelsSpec').textContent = total >= 1000000 ? (total / 1000000).toFixed(2) + 'M' : Math.round(total / 1000) + 'K';
             document.getElementById('areaSpec').textContent = sqft + ' sq ft';
-            
             document.getElementById('genreDescription').textContent = GENRES[state.genre].description;
-            
-            // Update AR link
-            document.getElementById('arLink').href = state.genre + '.usdz';
+            document.getElementById('arDimensions').textContent = state.width + ' ft × ' + state.height + ' ft';
+            var arLink = document.getElementById('arLink');
+            var arButton = document.getElementById('arButtonText');
+            arLink.classList.add('loading');
+            arButton.textContent = 'Generating...';
+            try {
+                var url = await generateUSDZ();
+                arLink.href = url;
+                arButton.textContent = 'View in Your Space';
+                arLink.classList.remove('loading');
+            } catch(e) {
+                console.error('USDZ generation failed:', e);
+                arButton.textContent = 'View in Your Space';
+                arLink.classList.remove('loading');
+            }
         }
         
-        // ===================== DRAWING =====================
         function drawNature(ctx, w, h, t) {
             var sky = ctx.createLinearGradient(0, 0, 0, h * 0.7);
-            sky.addColorStop(0, '#0a0a20');
-            sky.addColorStop(0.5, '#1a3a4a');
-            sky.addColorStop(1, '#2a4a3a');
-            ctx.fillStyle = sky;
-            ctx.fillRect(0, 0, w, h);
-            
+            sky.addColorStop(0, '#0a0a20'); sky.addColorStop(0.5, '#1a3a4a'); sky.addColorStop(1, '#2a4a3a');
+            ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
             for (var a = 0; a < 5; a++) {
-                ctx.save();
-                ctx.globalAlpha = 0.3 + Math.sin(t*0.03 + a) * 0.15;
+                ctx.save(); ctx.globalAlpha = 0.3 + Math.sin(t*0.03 + a) * 0.15;
                 var ag = ctx.createLinearGradient(0, h*0.1, 0, h*0.55);
-                ag.addColorStop(0, 'transparent');
-                ag.addColorStop(0.3, 'hsl(' + (120 + a*25 + Math.sin(t*0.02)*20) + ',80%,50%)');
-                ag.addColorStop(0.7, 'hsl(' + (180 + a*20 + Math.sin(t*0.025)*15) + ',70%,40%)');
-                ag.addColorStop(1, 'transparent');
-                ctx.fillStyle = ag;
-                ctx.beginPath();
-                ctx.moveTo(0, h*0.15);
-                for (var ax = 0; ax <= w; ax += 15) {
-                    var ay = h*0.28 + Math.sin(ax*0.012 + t*0.02 + a*0.8) * h*0.08;
-                    ctx.lineTo(ax, ay);
-                }
-                ctx.lineTo(w, h*0.55);
-                ctx.lineTo(0, h*0.55);
-                ctx.fill();
-                ctx.restore();
+                ag.addColorStop(0, 'transparent'); ag.addColorStop(0.3, 'hsl(' + (120 + a*25 + Math.sin(t*0.02)*20) + ',80%,50%)');
+                ag.addColorStop(0.7, 'hsl(' + (180 + a*20 + Math.sin(t*0.025)*15) + ',70%,40%)'); ag.addColorStop(1, 'transparent');
+                ctx.fillStyle = ag; ctx.beginPath(); ctx.moveTo(0, h*0.15);
+                for (var ax = 0; ax <= w; ax += 15) { ctx.lineTo(ax, h*0.28 + Math.sin(ax*0.012 + t*0.02 + a*0.8) * h*0.08); }
+                ctx.lineTo(w, h*0.55); ctx.lineTo(0, h*0.55); ctx.fill(); ctx.restore();
             }
-            
             ctx.fillStyle = '#fff';
             for (var st = 0; st < 100; st++) {
-                var stx = (st * 193.7) % w;
-                var sty = (st * 71.3) % (h * 0.55);
                 ctx.globalAlpha = 0.4 + Math.sin(t*0.1 + st) * 0.3;
-                ctx.beginPath();
-                ctx.arc(stx, sty, 1 + (st % 3) * 0.5, 0, Math.PI*2);
-                ctx.fill();
+                ctx.beginPath(); ctx.arc((st * 193.7) % w, (st * 71.3) % (h * 0.55), 1 + (st % 3) * 0.5, 0, Math.PI*2); ctx.fill();
             }
             ctx.globalAlpha = 1;
-            
-            ctx.fillStyle = '#1a1a2e';
-            ctx.beginPath();
-            ctx.moveTo(0, h);
-            ctx.lineTo(0, h*0.72);
-            ctx.lineTo(w*0.12, h*0.52);
-            ctx.lineTo(w*0.28, h*0.68);
-            ctx.lineTo(w*0.48, h*0.38);
-            ctx.lineTo(w*0.68, h*0.58);
-            ctx.lineTo(w*0.85, h*0.42);
-            ctx.lineTo(w, h*0.58);
-            ctx.lineTo(w, h);
-            ctx.fill();
-            
+            ctx.fillStyle = '#1a1a2e'; ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(0, h*0.72);
+            ctx.lineTo(w*0.12, h*0.52); ctx.lineTo(w*0.28, h*0.68); ctx.lineTo(w*0.48, h*0.38);
+            ctx.lineTo(w*0.68, h*0.58); ctx.lineTo(w*0.85, h*0.42); ctx.lineTo(w, h*0.58); ctx.lineTo(w, h); ctx.fill();
             ctx.fillStyle = 'rgba(255,255,255,0.5)';
-            ctx.beginPath();
-            ctx.moveTo(w*0.48, h*0.38);
-            ctx.lineTo(w*0.42, h*0.50);
-            ctx.lineTo(w*0.54, h*0.50);
-            ctx.fill();
-            
-            ctx.beginPath();
-            ctx.moveTo(w*0.85, h*0.42);
-            ctx.lineTo(w*0.79, h*0.52);
-            ctx.lineTo(w*0.91, h*0.52);
-            ctx.fill();
-            
+            ctx.beginPath(); ctx.moveTo(w*0.48, h*0.38); ctx.lineTo(w*0.42, h*0.50); ctx.lineTo(w*0.54, h*0.50); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(w*0.85, h*0.42); ctx.lineTo(w*0.79, h*0.52); ctx.lineTo(w*0.91, h*0.52); ctx.fill();
             var lake = ctx.createLinearGradient(0, h*0.82, 0, h);
-            lake.addColorStop(0, 'rgba(20,50,70,0.9)');
-            lake.addColorStop(1, 'rgba(10,30,50,0.95)');
-            ctx.fillStyle = lake;
-            ctx.fillRect(0, h*0.82, w, h*0.18);
+            lake.addColorStop(0, 'rgba(20,50,70,0.9)'); lake.addColorStop(1, 'rgba(10,30,50,0.95)');
+            ctx.fillStyle = lake; ctx.fillRect(0, h*0.82, w, h*0.18);
         }
         
         function drawWorship(ctx, w, h, t) {
             var bg = ctx.createLinearGradient(0, 0, 0, h);
-            bg.addColorStop(0, '#1a0a30');
-            bg.addColorStop(0.5, '#2a1a50');
-            bg.addColorStop(1, '#4a3020');
-            ctx.fillStyle = bg;
-            ctx.fillRect(0, 0, w, h);
-            
+            bg.addColorStop(0, '#1a0a30'); bg.addColorStop(0.5, '#2a1a50'); bg.addColorStop(1, '#4a3020');
+            ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
             for (var i = 0; i < 8; i++) {
-                ctx.save();
-                ctx.globalAlpha = 0.12 + Math.sin(t*0.04 + i) * 0.08;
+                ctx.save(); ctx.globalAlpha = 0.12 + Math.sin(t*0.04 + i) * 0.08;
                 var rayX = w * 0.5 + Math.sin(t*0.02 + i*0.8) * w * 0.25;
                 var rg = ctx.createLinearGradient(rayX, h, rayX, 0);
-                rg.addColorStop(0, 'hsl(' + (280 + i*12) + ',70%,55%)');
-                rg.addColorStop(1, 'transparent');
-                ctx.fillStyle = rg;
-                ctx.beginPath();
-                ctx.moveTo(rayX - 50, h);
-                ctx.lineTo(rayX - 15 + Math.sin(t*0.015)*20, 0);
-                ctx.lineTo(rayX + 15 + Math.sin(t*0.015)*20, 0);
-                ctx.lineTo(rayX + 50, h);
-                ctx.fill();
-                ctx.restore();
+                rg.addColorStop(0, 'hsl(' + (280 + i*12) + ',70%,55%)'); rg.addColorStop(1, 'transparent');
+                ctx.fillStyle = rg; ctx.beginPath(); ctx.moveTo(rayX - 50, h);
+                ctx.lineTo(rayX - 15 + Math.sin(t*0.015)*20, 0); ctx.lineTo(rayX + 15 + Math.sin(t*0.015)*20, 0);
+                ctx.lineTo(rayX + 50, h); ctx.fill(); ctx.restore();
             }
-            
             ctx.fillStyle = '#fff';
             for (var s = 0; s < 60; s++) {
                 ctx.globalAlpha = 0.4 + Math.sin(t*0.12 + s) * 0.3;
-                ctx.beginPath();
-                ctx.arc((s * 137) % w, (s * 89) % (h*0.6), 1.2, 0, Math.PI*2);
-                ctx.fill();
+                ctx.beginPath(); ctx.arc((s * 137) % w, (s * 89) % (h*0.6), 1.2, 0, Math.PI*2); ctx.fill();
             }
             ctx.globalAlpha = 1;
-            
             ctx.fillStyle = 'rgba(255,220,150,0.3)';
-            var cx = w/2, cy = h*0.45;
-            ctx.fillRect(cx - 10, cy - 90, 20, 180);
-            ctx.fillRect(cx - 60, cy - 50, 120, 20);
+            ctx.fillRect(w/2 - 10, h*0.45 - 90, 20, 180); ctx.fillRect(w/2 - 60, h*0.45 - 50, 120, 20);
         }
         
         function drawCorporate(ctx, w, h, t) {
             var bg = ctx.createLinearGradient(0, 0, w, h);
-            bg.addColorStop(0, '#0a2540');
-            bg.addColorStop(1, '#0d47a1');
-            ctx.fillStyle = bg;
-            ctx.fillRect(0, 0, w, h);
-            
-            ctx.strokeStyle = 'rgba(100,200,255,0.15)';
-            ctx.lineWidth = 1;
+            bg.addColorStop(0, '#0a2540'); bg.addColorStop(1, '#0d47a1');
+            ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+            ctx.strokeStyle = 'rgba(100,200,255,0.15)'; ctx.lineWidth = 1;
             var gridOff = (t * 0.5) % 60;
-            for (var gx = -60 + gridOff; gx < w + 60; gx += 60) {
-                ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke();
-            }
-            for (var gy = 0; gy < h; gy += 60) {
-                ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
-            }
-            
+            for (var gx = -60 + gridOff; gx < w + 60; gx += 60) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke(); }
+            for (var gy = 0; gy < h; gy += 60) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke(); }
             for (var b = 0; b < 8; b++) {
                 var bh = 60 + Math.abs(Math.sin(t*0.03 + b*0.6)) * 140;
-                var bx = w*0.1 + b * (w*0.1);
                 var bgr = ctx.createLinearGradient(0, h*0.85 - bh, 0, h*0.85);
-                bgr.addColorStop(0, '#00e5ff');
-                bgr.addColorStop(1, '#0066cc');
-                ctx.fillStyle = bgr;
-                ctx.fillRect(bx, h*0.85 - bh, w*0.07, bh);
+                bgr.addColorStop(0, '#00e5ff'); bgr.addColorStop(1, '#0066cc');
+                ctx.fillStyle = bgr; ctx.fillRect(w*0.1 + b * (w*0.1), h*0.85 - bh, w*0.07, bh);
             }
-            
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold ' + Math.round(w*0.05) + 'px Arial';
-            ctx.textAlign = 'center';
+            ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.05) + 'px Arial'; ctx.textAlign = 'center';
             ctx.fillText('QUARTERLY REPORT', w/2, h*0.15);
         }
         
         function drawSports(ctx, w, h, t) {
-            // Green football field
             var fg = ctx.createLinearGradient(0, 0, 0, h);
-            fg.addColorStop(0, '#1b5e20');
-            fg.addColorStop(0.5, '#2e7d32');
-            fg.addColorStop(1, '#1b5e20');
-            ctx.fillStyle = fg;
-            ctx.fillRect(0, 0, w, h);
-            
-            var marginX = w * 0.05;
-            var marginY = h * 0.15;
-            var fieldW = w - 2 * marginX;
-            var fieldH = h - 2 * marginY;
-            
-            // End zones
-            ctx.fillStyle = '#0033aa';
-            ctx.fillRect(marginX, marginY, fieldW * 0.1, fieldH);
-            ctx.fillStyle = '#aa0000';
-            ctx.fillRect(w - marginX - fieldW * 0.1, marginY, fieldW * 0.1, fieldH);
-            
-            // Yard lines
-            ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-            ctx.lineWidth = 2;
-            for (var i = 0; i <= 10; i++) {
-                var x = marginX + fieldW * 0.1 + fieldW * 0.8 * i / 10;
-                ctx.beginPath();
-                ctx.moveTo(x, marginY);
-                ctx.lineTo(x, h - marginY);
-                ctx.stroke();
-            }
-            
-            // Field border
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(marginX, marginY, fieldW, fieldH);
-            
-            // Yard numbers
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold ' + Math.round(w*0.03) + 'px Arial';
-            ctx.textAlign = 'center';
+            fg.addColorStop(0, '#1b5e20'); fg.addColorStop(0.5, '#2e7d32'); fg.addColorStop(1, '#1b5e20');
+            ctx.fillStyle = fg; ctx.fillRect(0, 0, w, h);
+            var mx = w * 0.05, my = h * 0.15, fw = w - 2 * mx, fh = h - 2 * my;
+            ctx.fillStyle = '#0033aa'; ctx.fillRect(mx, my, fw * 0.1, fh);
+            ctx.fillStyle = '#aa0000'; ctx.fillRect(w - mx - fw * 0.1, my, fw * 0.1, fh);
+            ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
+            for (var i = 0; i <= 10; i++) { var x = mx + fw * 0.1 + fw * 0.8 * i / 10; ctx.beginPath(); ctx.moveTo(x, my); ctx.lineTo(x, h - my); ctx.stroke(); }
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.strokeRect(mx, my, fw, fh);
+            ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.03) + 'px Arial'; ctx.textAlign = 'center';
             var nums = ['10','20','30','40','50','40','30','20','10'];
             for (var n = 0; n < nums.length; n++) {
-                var nx = marginX + fieldW * 0.1 + fieldW * 0.8 * (n + 1) / 10;
-                ctx.fillText(nums[n], nx, marginY + fieldH * 0.12);
-                ctx.fillText(nums[n], nx, h - marginY - fieldH * 0.05);
+                var nx = mx + fw * 0.1 + fw * 0.8 * (n + 1) / 10;
+                ctx.fillText(nums[n], nx, my + fh * 0.12); ctx.fillText(nums[n], nx, h - my - fh * 0.05);
             }
-            
-            // End zone text
             ctx.font = 'bold ' + Math.round(w*0.035) + 'px Arial';
-            ctx.fillText('HOME', marginX + fieldW * 0.05, h/2);
-            ctx.fillText('AWAY', w - marginX - fieldW * 0.05, h/2);
-            
-            // Animated football
+            ctx.fillText('HOME', mx + fw * 0.05, h/2); ctx.fillText('AWAY', w - mx - fw * 0.05, h/2);
             var ballX = w * 0.4 + Math.sin(t * 0.03) * w * 0.2;
             var ballY = h * 0.5 + Math.cos(t * 0.04) * h * 0.15;
-            ctx.save();
-            ctx.translate(ballX, ballY);
-            ctx.rotate(Math.sin(t * 0.05) * 0.3);
-            ctx.fillStyle = '#654321';
-            ctx.beginPath();
-            ctx.ellipse(0, 0, w*0.025, w*0.015, 0, 0, Math.PI*2);
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, -w*0.012);
-            ctx.lineTo(0, w*0.012);
-            ctx.stroke();
+            ctx.save(); ctx.translate(ballX, ballY); ctx.rotate(Math.sin(t * 0.05) * 0.3);
+            ctx.fillStyle = '#654321'; ctx.beginPath(); ctx.ellipse(0, 0, w*0.025, w*0.015, 0, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -w*0.012); ctx.lineTo(0, w*0.012); ctx.stroke();
             ctx.restore();
-            
-            // Scoreboard
-            ctx.fillStyle = 'rgba(0,0,0,0.95)';
-            ctx.fillRect(w*0.2, h*0.01, w*0.6, h*0.12);
-            ctx.strokeStyle = '#ffc107';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(w*0.2, h*0.01, w*0.6, h*0.12);
-            
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold ' + Math.round(w*0.025) + 'px Arial';
-            ctx.fillText('HOME', w*0.32, h*0.045);
-            ctx.fillText('AWAY', w*0.68, h*0.045);
-            
-            ctx.fillStyle = '#ffcc00';
-            ctx.fillText('Q4', w*0.5, h*0.045);
-            ctx.fillStyle = '#fff';
-            ctx.font = Math.round(w*0.022) + 'px Arial';
-            ctx.fillText('2:34', w*0.5, h*0.095);
-            
-            ctx.fillStyle = '#00ff00';
-            ctx.font = 'bold ' + Math.round(w*0.04) + 'px monospace';
-            ctx.fillText('24', w*0.32, h*0.1);
-            ctx.fillText('17', w*0.68, h*0.1);
+            ctx.fillStyle = 'rgba(0,0,0,0.95)'; ctx.fillRect(w*0.2, h*0.01, w*0.6, h*0.12);
+            ctx.strokeStyle = '#ffc107'; ctx.lineWidth = 3; ctx.strokeRect(w*0.2, h*0.01, w*0.6, h*0.12);
+            ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.025) + 'px Arial';
+            ctx.fillText('HOME', w*0.32, h*0.045); ctx.fillText('AWAY', w*0.68, h*0.045);
+            ctx.fillStyle = '#ffcc00'; ctx.fillText('Q4', w*0.5, h*0.045);
+            ctx.fillStyle = '#fff'; ctx.font = Math.round(w*0.022) + 'px Arial'; ctx.fillText('2:34', w*0.5, h*0.095);
+            ctx.fillStyle = '#00ff00'; ctx.font = 'bold ' + Math.round(w*0.04) + 'px monospace';
+            ctx.fillText('24', w*0.32, h*0.1); ctx.fillText('17', w*0.68, h*0.1);
         }
         
         function drawConcert(ctx, w, h, t) {
-            ctx.fillStyle = '#080010';
-            ctx.fillRect(0, 0, w, h);
-            
+            ctx.fillStyle = '#080010'; ctx.fillRect(0, 0, w, h);
             var colors = ['#ff00ff','#00ffff','#ffff00','#ff0088','#00ff88','#8800ff'];
             for (var i = 0; i < 10; i++) {
-                ctx.save();
-                ctx.globalAlpha = 0.2 + Math.sin(t*0.06 + i*0.5) * 0.1;
+                ctx.save(); ctx.globalAlpha = 0.2 + Math.sin(t*0.06 + i*0.5) * 0.1;
                 var ang = Math.sin(t*0.025 + i*0.5) * 0.5;
                 var topX = w/2 + Math.tan(ang) * h;
                 var lg = ctx.createLinearGradient(w/2, h, topX, 0);
-                lg.addColorStop(0, colors[i % colors.length]);
-                lg.addColorStop(1, 'transparent');
-                ctx.fillStyle = lg;
-                ctx.beginPath();
-                ctx.moveTo(w/2, h);
-                ctx.lineTo(topX - w*0.06, 0);
-                ctx.lineTo(topX + w*0.06, 0);
-                ctx.closePath();
-                ctx.fill();
-                ctx.restore();
+                lg.addColorStop(0, colors[i % colors.length]); lg.addColorStop(1, 'transparent');
+                ctx.fillStyle = lg; ctx.beginPath(); ctx.moveTo(w/2, h);
+                ctx.lineTo(topX - w*0.06, 0); ctx.lineTo(topX + w*0.06, 0); ctx.closePath(); ctx.fill(); ctx.restore();
             }
-            
-            ctx.fillStyle = '#000';
-            ctx.beginPath();
-            ctx.moveTo(0, h);
-            for (var cx = 0; cx <= w; cx += w*0.02) {
-                ctx.lineTo(cx, h - (h*0.08 + Math.sin(t*0.1 + cx*0.008) * h*0.03));
-            }
-            ctx.lineTo(w, h);
-            ctx.fill();
-            
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold ' + Math.round(w*0.1) + 'px Arial';
-            ctx.textAlign = 'center';
-            ctx.shadowColor = '#ff00ff';
-            ctx.shadowBlur = 20 + Math.sin(t*0.1) * 10;
-            ctx.fillText('LIVE', w/2, h*0.35);
-            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#000'; ctx.beginPath(); ctx.moveTo(0, h);
+            for (var cx = 0; cx <= w; cx += w*0.02) { ctx.lineTo(cx, h - (h*0.08 + Math.sin(t*0.1 + cx*0.008) * h*0.03)); }
+            ctx.lineTo(w, h); ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.1) + 'px Arial'; ctx.textAlign = 'center';
+            ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 20 + Math.sin(t*0.1) * 10; ctx.fillText('LIVE', w/2, h*0.35); ctx.shadowBlur = 0;
         }
         
         function drawRetail(ctx, w, h, t) {
             var hue = (t * 0.5) % 360;
             var rg = ctx.createLinearGradient(0, 0, w, h);
-            rg.addColorStop(0, 'hsl(' + hue + ',80%,50%)');
-            rg.addColorStop(0.5, 'hsl(' + ((hue+40)%360) + ',70%,45%)');
+            rg.addColorStop(0, 'hsl(' + hue + ',80%,50%)'); rg.addColorStop(0.5, 'hsl(' + ((hue+40)%360) + ',70%,45%)');
             rg.addColorStop(1, 'hsl(' + ((hue+80)%360) + ',75%,40%)');
-            ctx.fillStyle = rg;
-            ctx.fillRect(0, 0, w, h);
-            
+            ctx.fillStyle = rg; ctx.fillRect(0, 0, w, h);
             ctx.fillStyle = 'rgba(255,255,255,0.8)';
             for (var sp = 0; sp < 40; sp++) {
                 var spx = (Math.sin(t*0.015 + sp*0.5) * 0.4 + 0.5) * w;
                 var spy = ((sp * 0.06 + t*0.002) % 1.1) * h;
-                ctx.beginPath();
-                ctx.arc(spx, spy, 3 + Math.sin(t*0.08 + sp) * 2, 0, Math.PI*2);
-                ctx.fill();
+                ctx.beginPath(); ctx.arc(spx, spy, 3 + Math.sin(t*0.08 + sp) * 2, 0, Math.PI*2); ctx.fill();
             }
-            
-            ctx.save();
-            ctx.translate(w/2, h/2);
-            var scale = 1 + Math.sin(t*0.08) * 0.03;
-            ctx.scale(scale, scale);
-            ctx.fillStyle = '#d32f2f';
-            ctx.beginPath();
-            ctx.moveTo(-w*0.35, 0);
-            ctx.lineTo(-w*0.32, -h*0.15);
-            ctx.lineTo(w*0.32, -h*0.15);
-            ctx.lineTo(w*0.35, 0);
-            ctx.lineTo(w*0.32, h*0.15);
-            ctx.lineTo(-w*0.32, h*0.15);
-            ctx.closePath();
-            ctx.fill();
-            
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold ' + Math.round(w*0.12) + 'px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('SALE', 0, 0);
-            ctx.restore();
-            
-            ctx.textBaseline = 'alphabetic';
-            ctx.font = 'bold ' + Math.round(w*0.04) + 'px Arial';
-            ctx.fillStyle = '#fff';
+            ctx.save(); ctx.translate(w/2, h/2);
+            var scale = 1 + Math.sin(t*0.08) * 0.03; ctx.scale(scale, scale);
+            ctx.fillStyle = '#d32f2f'; ctx.beginPath(); ctx.moveTo(-w*0.35, 0);
+            ctx.lineTo(-w*0.32, -h*0.15); ctx.lineTo(w*0.32, -h*0.15); ctx.lineTo(w*0.35, 0);
+            ctx.lineTo(w*0.32, h*0.15); ctx.lineTo(-w*0.32, h*0.15); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.font = 'bold ' + Math.round(w*0.12) + 'px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('SALE', 0, 0); ctx.restore();
+            ctx.textBaseline = 'alphabetic'; ctx.font = 'bold ' + Math.round(w*0.04) + 'px Arial'; ctx.fillStyle = '#fff';
             ctx.fillText('UP TO 50% OFF', w/2, h*0.82);
         }
         
         function drawCinema(ctx, w, h, t) {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, w, h);
-            
-            var letterboxH = h * 0.12;
-            var viewH = h - letterboxH * 2;
-            
-            var sky = ctx.createLinearGradient(0, letterboxH, 0, letterboxH + viewH * 0.6);
-            sky.addColorStop(0, '#1a1a3a');
-            sky.addColorStop(1, 'hsl(' + (30 + Math.sin(t*0.01)*10) + ',60%,35%)');
-            ctx.fillStyle = sky;
-            ctx.fillRect(0, letterboxH, w, viewH * 0.6);
-            
-            var sunY = letterboxH + viewH*0.3 + Math.sin(t*0.008) * 10;
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+            var lbH = h * 0.12, viewH = h - lbH * 2;
+            var sky = ctx.createLinearGradient(0, lbH, 0, lbH + viewH * 0.6);
+            sky.addColorStop(0, '#1a1a3a'); sky.addColorStop(1, 'hsl(' + (30 + Math.sin(t*0.01)*10) + ',60%,35%)');
+            ctx.fillStyle = sky; ctx.fillRect(0, lbH, w, viewH * 0.6);
+            var sunY = lbH + viewH*0.3 + Math.sin(t*0.008) * 10;
             var sunGlow = ctx.createRadialGradient(w*0.7, sunY, 0, w*0.7, sunY, w*0.15);
-            sunGlow.addColorStop(0, 'rgba(255,200,100,1)');
-            sunGlow.addColorStop(0.4, 'rgba(255,150,50,0.5)');
-            sunGlow.addColorStop(1, 'transparent');
-            ctx.fillStyle = sunGlow;
-            ctx.fillRect(0, letterboxH, w, viewH);
-            
-            ctx.fillStyle = '#1a1a2a';
-            ctx.beginPath();
-            ctx.moveTo(0, letterboxH + viewH * 0.6);
-            ctx.lineTo(w*0.2, letterboxH + viewH * 0.4);
-            ctx.lineTo(w*0.4, letterboxH + viewH * 0.55);
-            ctx.lineTo(w*0.6, letterboxH + viewH * 0.35);
-            ctx.lineTo(w*0.8, letterboxH + viewH * 0.5);
-            ctx.lineTo(w, letterboxH + viewH * 0.45);
-            ctx.lineTo(w, letterboxH + viewH);
-            ctx.lineTo(0, letterboxH + viewH);
-            ctx.fill();
-            
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, w, letterboxH);
-            ctx.fillRect(0, h - letterboxH, w, letterboxH);
+            sunGlow.addColorStop(0, 'rgba(255,200,100,1)'); sunGlow.addColorStop(0.4, 'rgba(255,150,50,0.5)'); sunGlow.addColorStop(1, 'transparent');
+            ctx.fillStyle = sunGlow; ctx.fillRect(0, lbH, w, viewH);
+            ctx.fillStyle = '#1a1a2a'; ctx.beginPath(); ctx.moveTo(0, lbH + viewH * 0.6);
+            ctx.lineTo(w*0.2, lbH + viewH * 0.4); ctx.lineTo(w*0.4, lbH + viewH * 0.55); ctx.lineTo(w*0.6, lbH + viewH * 0.35);
+            ctx.lineTo(w*0.8, lbH + viewH * 0.5); ctx.lineTo(w, lbH + viewH * 0.45); ctx.lineTo(w, lbH + viewH); ctx.lineTo(0, lbH + viewH); ctx.fill();
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, lbH); ctx.fillRect(0, h - lbH, w, lbH);
         }
         
         function drawContent(ctx, w, h, t) {
             ctx.clearRect(0, 0, w, h);
-            
             switch(state.genre) {
                 case 'worship': drawWorship(ctx, w, h, t); break;
                 case 'corporate': drawCorporate(ctx, w, h, t); break;
@@ -663,7 +606,6 @@
             }
         }
         
-        // ===================== PREVIEW =====================
         function resizePreviewCanvas() {
             var container = previewCanvas.parentElement;
             var rect = container.getBoundingClientRect();
@@ -677,80 +619,61 @@
             requestAnimationFrame(animatePreview);
         }
         
-        // ===================== EVENT HANDLERS =====================
+        var updateTimeout = null;
+        function debouncedUpdate() {
+            if (updateTimeout) clearTimeout(updateTimeout);
+            updateTimeout = setTimeout(updateUI, 300);
+        }
+        
         document.querySelectorAll('[data-shape]').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('[data-shape]').forEach(function(b) { b.classList.remove('active'); });
-                btn.classList.add('active');
-                state.shape = btn.dataset.shape;
-                
+                btn.classList.add('active'); state.shape = btn.dataset.shape;
                 var widthSlider = document.getElementById('widthSlider');
                 var heightSlider = document.getElementById('heightSlider');
-                
-                if (state.shape === 'custom') {
-                    heightSlider.disabled = false;
-                } else {
+                if (state.shape === 'custom') { heightSlider.disabled = false; }
+                else {
                     heightSlider.disabled = true;
-                    var widthIdx = parseInt(widthSlider.value);
-                    state.width = WIDTH_INCREMENTS[widthIdx];
-                    
-                    if (state.shape === 'rectangle') {
-                        state.height = findBestHeightForRatio(state.width, 16/9);
-                    } else if (state.shape === 'square') {
-                        state.height = snapToIncrement(state.width, HEIGHT_INCREMENTS);
-                    } else if (state.shape === 'ultrawide') {
-                        state.height = findBestHeightForRatio(state.width, 21/9);
-                    }
+                    state.width = WIDTH_INCREMENTS[parseInt(widthSlider.value)];
+                    if (state.shape === 'rectangle') state.height = findBestHeightForRatio(state.width, 16/9);
+                    else if (state.shape === 'square') state.height = snapToIncrement(state.width, HEIGHT_INCREMENTS);
+                    else if (state.shape === 'ultrawide') state.height = findBestHeightForRatio(state.width, 21/9);
                     heightSlider.value = getIncrementIndex(state.height, HEIGHT_INCREMENTS);
                 }
-                updateUI();
+                debouncedUpdate();
             });
         });
         
         document.querySelectorAll('[data-pitch]').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('[data-pitch]').forEach(function(b) { b.classList.remove('active'); });
-                btn.classList.add('active');
-                state.pixelPitch = parseFloat(btn.dataset.pitch);
-                updateUI();
+                btn.classList.add('active'); state.pixelPitch = parseFloat(btn.dataset.pitch); debouncedUpdate();
             });
         });
         
         document.querySelectorAll('[data-genre]').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('[data-genre]').forEach(function(b) { b.classList.remove('active'); });
-                btn.classList.add('active');
-                state.genre = btn.dataset.genre;
-                updateUI();
+                btn.classList.add('active'); state.genre = btn.dataset.genre; debouncedUpdate();
             });
         });
         
         document.getElementById('widthSlider').addEventListener('input', function(e) {
-            var idx = parseInt(e.target.value);
-            state.width = WIDTH_INCREMENTS[idx];
-            
+            state.width = WIDTH_INCREMENTS[parseInt(e.target.value)];
             if (state.shape !== 'custom') {
                 var heightSlider = document.getElementById('heightSlider');
-                if (state.shape === 'rectangle') {
-                    state.height = findBestHeightForRatio(state.width, 16/9);
-                } else if (state.shape === 'square') {
-                    state.height = snapToIncrement(state.width, HEIGHT_INCREMENTS);
-                } else if (state.shape === 'ultrawide') {
-                    state.height = findBestHeightForRatio(state.width, 21/9);
-                }
+                if (state.shape === 'rectangle') state.height = findBestHeightForRatio(state.width, 16/9);
+                else if (state.shape === 'square') state.height = snapToIncrement(state.width, HEIGHT_INCREMENTS);
+                else if (state.shape === 'ultrawide') state.height = findBestHeightForRatio(state.width, 21/9);
                 heightSlider.value = getIncrementIndex(state.height, HEIGHT_INCREMENTS);
             }
-            updateUI();
+            debouncedUpdate();
         });
         
         document.getElementById('heightSlider').addEventListener('input', function(e) {
-            if (state.shape === 'custom') {
-                state.height = HEIGHT_INCREMENTS[parseInt(e.target.value)];
-                updateUI();
-            }
+            if (state.shape === 'custom') { state.height = HEIGHT_INCREMENTS[parseInt(e.target.value)]; debouncedUpdate(); }
         });
         
-        // ===================== INIT =====================
         resizePreviewCanvas();
         window.addEventListener('resize', resizePreviewCanvas);
         updateUI();
