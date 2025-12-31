@@ -25,8 +25,10 @@
         .logo-subtitle { font-size: 12px; color: rgba(0,200,255,0.7); text-transform: uppercase; letter-spacing: 6px; margin-top: 5px; }
         
         .preview-section { background: rgba(0,0,0,0.4); border-radius: 20px; padding: 20px; margin-bottom: 20px; border: 1px solid rgba(0,200,255,0.2); }
-        .preview-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 15px; }
-        #previewCanvas { width: 100%; height: 100%; display: block; }
+        .preview-wrapper { display: flex; justify-content: center; align-items: center; margin-bottom: 15px; }
+        .preview-frame { background: #0a0a0a; padding: 6px; border-radius: 3px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        .preview-container { position: relative; overflow: hidden; background: #000; }
+        #previewImage { display: block; width: 100%; height: 100%; object-fit: cover; }
         .preview-label { text-align: center; font-size: 12px; color: rgba(255,255,255,0.5); }
         
         .ar-button { display: flex; width: 100%; padding: 18px; font-size: 18px; font-weight: 700; color: #000; background: linear-gradient(135deg, #00ff88, #00d4ff); border: none; border-radius: 50px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; align-items: center; justify-content: center; gap: 10px; text-decoration: none; }
@@ -35,6 +37,7 @@
         .ar-button svg { width: 24px; height: 24px; }
         
         .ar-note { text-align: center; font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 20px; }
+        #arDimensions { color: #00d4ff; font-weight: 600; }
         
         .status-message { text-align: center; padding: 12px; margin-bottom: 15px; border-radius: 10px; font-size: 13px; display: none; }
         .status-message.show { display: block; }
@@ -52,11 +55,13 @@
         .viewing-distance { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); }
         .viewing-distance strong { color: #ffcc00; }
         
-        .button-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px; }
+        .button-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
         .option-btn { padding: 12px 8px; background: rgba(0,100,200,0.15); border: 1px solid rgba(0,200,255,0.2); border-radius: 10px; color: rgba(255,255,255,0.7); font-size: 11px; font-weight: 600; cursor: pointer; text-align: center; transition: all 0.2s; }
         .option-btn.active { background: rgba(0,150,255,0.4); border-color: #00d4ff; color: #fff; }
         .option-btn small { display: block; font-size: 9px; color: rgba(255,255,255,0.4); margin-top: 3px; font-weight: 400; }
         .option-btn.active small { color: rgba(255,255,255,0.7); }
+        
+        .resolution-label { text-align: center; font-size: 14px; color: #00ff88; font-weight: 700; padding: 8px 0; background: rgba(0,255,100,0.1); border-radius: 8px; margin-top: 8px; }
         
         .slider-group { margin-bottom: 15px; }
         .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -94,10 +99,14 @@
         </div>
         
         <div class="preview-section">
-            <div class="preview-container">
-                <canvas id="previewCanvas"></canvas>
+            <div class="preview-wrapper">
+                <div class="preview-frame">
+                    <div class="preview-container" id="previewContainer">
+                        <img id="previewImage" src="images/sports.jpg" alt="LED Wall Preview">
+                    </div>
+                </div>
             </div>
-            <div class="preview-label">Preview - Tap button below to view in AR</div>
+            <div class="preview-label">HD Preview · <span id="arDimensions">13.8 ft × 7.7 ft</span></div>
         </div>
         
         <div class="status-message" id="statusMessage"></div>
@@ -158,6 +167,7 @@
                 <button class="option-btn active" data-pitch="1.9">1.9mm<small>Standard</small></button>
                 <button class="option-btn" data-pitch="2.6">2.6mm<small>Commercial</small></button>
             </div>
+            <div class="resolution-label" id="resolutionLabel">Equivalent: 2K+</div>
         </div>
         
         <div class="config-section">
@@ -165,13 +175,10 @@
             <div class="genre-grid">
                 <button class="genre-btn" data-genre="worship">Worship</button>
                 <button class="genre-btn" data-genre="corporate">Corporate</button>
-                <button class="genre-btn" data-genre="sports">Sports</button>
-                <button class="genre-btn" data-genre="cinema">Cinema</button>
+                <button class="genre-btn active" data-genre="sports">Sports</button>
                 <button class="genre-btn" data-genre="concert">Concert</button>
-                <button class="genre-btn" data-genre="retail">Retail</button>
-                <button class="genre-btn active" data-genre="nature">Nature</button>
             </div>
-            <div class="genre-description" id="genreDescription">Ambient & Demo Content</div>
+            <div class="genre-description" id="genreDescription">Sports Bars & Watch Parties</div>
         </div>
         
         <div class="config-section">
@@ -204,14 +211,18 @@
         }
         
         // ===================== CONFIG =====================
+        const IMAGE_PATHS = {
+            sports: 'images/sports.jpg',
+            worship: 'images/worship.jpg',
+            corporate: 'images/corporate.jpg',
+            concert: 'images/concert.jpg'
+        };
+        
         const GENRES = {
             worship: { label: 'Worship', description: 'Churches & Houses of Worship' },
             corporate: { label: 'Corporate', description: 'Lobbies & Boardrooms' },
             sports: { label: 'Sports', description: 'Sports Bars & Watch Parties' },
-            cinema: { label: 'Cinema', description: 'Home Theater & Media Rooms' },
-            concert: { label: 'Concert', description: 'Live Events & Nightclubs' },
-            retail: { label: 'Retail', description: 'Stores & Commercial Signage' },
-            nature: { label: 'Nature', description: 'Ambient & Demo Content' }
+            concert: { label: 'Concert', description: 'Live Events & Nightclubs' }
         };
         
         const WIDTH_INCREMENTS = [3.9, 5.9, 7.9, 9.8, 11.8, 13.8, 15.7, 17.7, 19.7, 21.7, 23.6, 25.6, 27.6, 29.5, 31.5, 33.5, 35.4, 37.4, 39.4];
@@ -233,16 +244,35 @@
             width: 13.8,
             height: 7.7,
             pixelPitch: 1.9,
-            genre: 'nature'
+            genre: 'sports'
         };
         
-        // ===================== CANVAS =====================
-        const previewCanvas = document.getElementById('previewCanvas');
-        const previewCtx = previewCanvas.getContext('2d');
+        // ===================== IMAGE LOADING =====================
+        const loadedImages = {};
+        const previewImage = document.getElementById('previewImage');
+        const previewContainer = document.getElementById('previewContainer');
         const hiddenCanvas = document.getElementById('hiddenCanvas');
         const hiddenCtx = hiddenCanvas.getContext('2d');
         
-        let frameCount = 0;
+        function loadImage(genre) {
+            return new Promise((resolve) => {
+                if (loadedImages[genre]) {
+                    resolve(loadedImages[genre]);
+                    return;
+                }
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                    loadedImages[genre] = img;
+                    resolve(img);
+                };
+                img.onerror = () => resolve(null);
+                img.src = IMAGE_PATHS[genre];
+            });
+        }
+        
+        // Preload all images
+        Object.keys(IMAGE_PATHS).forEach(loadImage);
         
         // ===================== HELPERS =====================
         function snapToIncrement(value, increments) {
@@ -296,7 +326,37 @@
             return { w: Math.round(wMM / pitch), h: Math.round(hMM / pitch) };
         }
         
+        // Calculate equivalent resolution label (2K, 3K, 4K, etc.)
+        function getResolutionLabel(horizontalPixels) {
+            if (horizontalPixels >= 7680) return '8K';
+            if (horizontalPixels >= 6144) return '6K+';
+            if (horizontalPixels >= 5120) return '5K+';
+            if (horizontalPixels >= 4096) return '4K+';
+            if (horizontalPixels >= 3840) return '4K';
+            if (horizontalPixels >= 3072) return '3K+';
+            if (horizontalPixels >= 2560) return '3K';
+            if (horizontalPixels >= 2048) return '2K+';
+            if (horizontalPixels >= 1920) return '2K';
+            if (horizontalPixels >= 1280) return 'HD+';
+            return 'HD';
+        }
+        
         // ===================== UI =====================
+        function updatePreviewSize() {
+            const maxWidth = 320;
+            const aspect = state.width / state.height;
+            let w = maxWidth;
+            let h = Math.round(w / aspect);
+            
+            if (h > 220) {
+                h = 220;
+                w = Math.round(h * aspect);
+            }
+            
+            previewContainer.style.width = w + 'px';
+            previewContainer.style.height = h + 'px';
+        }
+        
         function updateUI() {
             document.getElementById('widthValue').textContent = state.width + ' ft';
             document.getElementById('heightValue').textContent = state.height + ' ft';
@@ -314,343 +374,59 @@
             document.getElementById('pixelsSpec').textContent = total >= 1000000 ? (total / 1000000).toFixed(2) + 'M' : Math.round(total / 1000) + 'K';
             document.getElementById('areaSpec').textContent = sqft + ' sq ft';
             
+            // Update resolution label under pixel pitch
+            const resLabel = getResolutionLabel(res.w);
+            document.getElementById('resolutionLabel').textContent = 'Equivalent: ' + resLabel;
+            
             document.getElementById('genreDescription').textContent = GENRES[state.genre].description;
+            document.getElementById('arDimensions').textContent = state.width + ' ft × ' + state.height + ' ft';
+            
+            // Update preview image and size
+            previewImage.src = IMAGE_PATHS[state.genre];
+            updatePreviewSize();
         }
         
-        // ===================== DRAWING =====================
-        function drawNature(ctx, w, h) {
-            const sky = ctx.createLinearGradient(0, 0, 0, h * 0.7);
-            sky.addColorStop(0, '#0a0a20');
-            sky.addColorStop(0.5, '#1a3a4a');
-            sky.addColorStop(1, '#2a4a3a');
-            ctx.fillStyle = sky;
-            ctx.fillRect(0, 0, w, h);
+        // ===================== TEXTURE GENERATION =====================
+        async function generateTexture() {
+            const img = await loadImage(state.genre);
             
-            for (let a = 0; a < 5; a++) {
-                ctx.save();
-                ctx.globalAlpha = 0.35;
-                const ag = ctx.createLinearGradient(0, h*0.1, 0, h*0.55);
-                ag.addColorStop(0, 'transparent');
-                ag.addColorStop(0.3, `hsl(${120 + a*25},80%,50%)`);
-                ag.addColorStop(0.7, `hsl(${180 + a*20},70%,40%)`);
-                ag.addColorStop(1, 'transparent');
-                ctx.fillStyle = ag;
-                ctx.beginPath();
-                ctx.moveTo(0, h*0.15);
-                for (let ax = 0; ax <= w; ax += 15) {
-                    const ay = h*0.28 + Math.sin(ax*0.012 + a*0.8) * h*0.08;
-                    ctx.lineTo(ax, ay);
+            const textureSize = 2048;
+            const aspectRatio = state.width / state.height;
+            const texW = textureSize;
+            const texH = Math.round(textureSize / aspectRatio);
+            
+            hiddenCanvas.width = texW;
+            hiddenCanvas.height = texH;
+            
+            // Fill black
+            hiddenCtx.fillStyle = '#000';
+            hiddenCtx.fillRect(0, 0, texW, texH);
+            
+            if (img) {
+                // Center crop the image to match wall aspect ratio
+                const imgAspect = img.width / img.height;
+                const targetAspect = aspectRatio;
+                
+                let sx, sy, sw, sh;
+                
+                if (imgAspect > targetAspect) {
+                    // Image is wider - crop sides
+                    sh = img.height;
+                    sw = img.height * targetAspect;
+                    sx = (img.width - sw) / 2;
+                    sy = 0;
+                } else {
+                    // Image is taller - crop top/bottom
+                    sw = img.width;
+                    sh = img.width / targetAspect;
+                    sx = 0;
+                    sy = (img.height - sh) / 2;
                 }
-                ctx.lineTo(w, h*0.55);
-                ctx.lineTo(0, h*0.55);
-                ctx.fill();
-                ctx.restore();
+                
+                hiddenCtx.drawImage(img, sx, sy, sw, sh, 0, 0, texW, texH);
             }
             
-            ctx.fillStyle = '#fff';
-            for (let st = 0; st < 100; st++) {
-                const stx = (st * 193.7) % w;
-                const sty = (st * 71.3) % (h * 0.55);
-                ctx.globalAlpha = 0.4 + (st % 5) * 0.12;
-                ctx.beginPath();
-                ctx.arc(stx, sty, 1 + (st % 3) * 0.5, 0, Math.PI*2);
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-            
-            ctx.fillStyle = '#1a1a2e';
-            ctx.beginPath();
-            ctx.moveTo(0, h);
-            ctx.lineTo(0, h*0.72);
-            ctx.lineTo(w*0.12, h*0.52);
-            ctx.lineTo(w*0.28, h*0.68);
-            ctx.lineTo(w*0.48, h*0.38);
-            ctx.lineTo(w*0.68, h*0.58);
-            ctx.lineTo(w*0.85, h*0.42);
-            ctx.lineTo(w, h*0.58);
-            ctx.lineTo(w, h);
-            ctx.fill();
-            
-            ctx.fillStyle = 'rgba(255,255,255,0.5)';
-            ctx.beginPath();
-            ctx.moveTo(w*0.48, h*0.38);
-            ctx.lineTo(w*0.42, h*0.50);
-            ctx.lineTo(w*0.54, h*0.50);
-            ctx.fill();
-            
-            ctx.beginPath();
-            ctx.moveTo(w*0.85, h*0.42);
-            ctx.lineTo(w*0.79, h*0.52);
-            ctx.lineTo(w*0.91, h*0.52);
-            ctx.fill();
-            
-            const lake = ctx.createLinearGradient(0, h*0.82, 0, h);
-            lake.addColorStop(0, 'rgba(20,50,70,0.9)');
-            lake.addColorStop(1, 'rgba(10,30,50,0.95)');
-            ctx.fillStyle = lake;
-            ctx.fillRect(0, h*0.82, w, h*0.18);
-            
-            ctx.fillStyle = 'rgba(255,255,255,0.15)';
-            ctx.font = `bold ${Math.round(w*0.04)}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.fillText('PRESTIGE VISUAL', w/2, h*0.92);
-        }
-        
-        function drawWorship(ctx, w, h) {
-            const bg = ctx.createLinearGradient(0, 0, 0, h);
-            bg.addColorStop(0, '#1a0a30');
-            bg.addColorStop(0.5, '#2a1a50');
-            bg.addColorStop(1, '#4a3020');
-            ctx.fillStyle = bg;
-            ctx.fillRect(0, 0, w, h);
-            
-            for (let i = 0; i < 8; i++) {
-                ctx.save();
-                ctx.globalAlpha = 0.15;
-                const rayX = w * 0.5 + Math.sin(i*0.8) * w * 0.25;
-                const rg = ctx.createLinearGradient(rayX, h, rayX, 0);
-                rg.addColorStop(0, `hsl(${280 + i*12},70%,55%)`);
-                rg.addColorStop(1, 'transparent');
-                ctx.fillStyle = rg;
-                ctx.beginPath();
-                ctx.moveTo(rayX - 50, h);
-                ctx.lineTo(rayX - 15, 0);
-                ctx.lineTo(rayX + 15, 0);
-                ctx.lineTo(rayX + 50, h);
-                ctx.fill();
-                ctx.restore();
-            }
-            
-            ctx.fillStyle = '#fff';
-            for (let s = 0; s < 60; s++) {
-                ctx.globalAlpha = 0.5 + (s % 4) * 0.1;
-                ctx.beginPath();
-                ctx.arc((s * 137) % w, (s * 89) % (h*0.6), 1.2, 0, Math.PI*2);
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-            
-            ctx.fillStyle = 'rgba(255,220,150,0.3)';
-            const cx = w/2, cy = h*0.45;
-            ctx.fillRect(cx - 10, cy - 90, 20, 180);
-            ctx.fillRect(cx - 60, cy - 50, 120, 20);
-        }
-        
-        function drawCorporate(ctx, w, h) {
-            const bg = ctx.createLinearGradient(0, 0, w, h);
-            bg.addColorStop(0, '#0a2540');
-            bg.addColorStop(1, '#0d47a1');
-            ctx.fillStyle = bg;
-            ctx.fillRect(0, 0, w, h);
-            
-            ctx.strokeStyle = 'rgba(100,200,255,0.1)';
-            ctx.lineWidth = 1;
-            for (let gx = 0; gx < w; gx += 60) {
-                ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke();
-            }
-            for (let gy = 0; gy < h; gy += 60) {
-                ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
-            }
-            
-            for (let b = 0; b < 8; b++) {
-                const bh = 60 + Math.abs(Math.sin(b*0.7)) * 140;
-                const bx = w*0.1 + b * (w*0.1);
-                const bgr = ctx.createLinearGradient(0, h*0.85 - bh, 0, h*0.85);
-                bgr.addColorStop(0, '#00e5ff');
-                bgr.addColorStop(1, '#0066cc');
-                ctx.fillStyle = bgr;
-                ctx.fillRect(bx, h*0.85 - bh, w*0.07, bh);
-            }
-            
-            ctx.fillStyle = '#fff';
-            ctx.font = `bold ${Math.round(w*0.05)}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.fillText('QUARTERLY REPORT', w/2, h*0.15);
-            
-            ctx.fillStyle = 'rgba(0,200,255,0.8)';
-            ctx.font = `${Math.round(w*0.025)}px Arial`;
-            ctx.fillText('Performance Dashboard', w/2, h*0.22);
-        }
-        
-        function drawSports(ctx, w, h) {
-            const fg = ctx.createLinearGradient(0, 0, 0, h);
-            fg.addColorStop(0, '#1b5e20');
-            fg.addColorStop(0.5, '#388e3c');
-            fg.addColorStop(1, '#1b5e20');
-            ctx.fillStyle = fg;
-            ctx.fillRect(0, 0, w, h);
-            
-            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(w*0.05, h*0.05, w*0.9, h*0.9);
-            ctx.beginPath();
-            ctx.moveTo(w/2, h*0.05);
-            ctx.lineTo(w/2, h*0.95);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.arc(w/2, h/2, w*0.1, 0, Math.PI*2);
-            ctx.stroke();
-            
-            ctx.fillStyle = 'rgba(0,0,0,0.9)';
-            ctx.fillRect(w*0.25, h*0.02, w*0.5, h*0.18);
-            ctx.strokeStyle = '#ffc107';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(w*0.25, h*0.02, w*0.5, h*0.18);
-            
-            ctx.fillStyle = '#fff';
-            ctx.font = `bold ${Math.round(w*0.03)}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.fillText('HOME', w*0.38, h*0.08);
-            ctx.fillText('AWAY', w*0.62, h*0.08);
-            
-            ctx.fillStyle = '#00ff00';
-            ctx.font = `bold ${Math.round(w*0.055)}px monospace`;
-            ctx.fillText('3 - 1', w/2, h*0.165);
-        }
-        
-        function drawConcert(ctx, w, h) {
-            ctx.fillStyle = '#080010';
-            ctx.fillRect(0, 0, w, h);
-            
-            const colors = ['#ff00ff','#00ffff','#ffff00','#ff0088','#00ff88','#8800ff'];
-            for (let i = 0; i < 10; i++) {
-                ctx.save();
-                ctx.globalAlpha = 0.25;
-                const ang = Math.sin(i*0.5) * 0.5;
-                const topX = w/2 + Math.tan(ang) * h;
-                const lg = ctx.createLinearGradient(w/2, h, topX, 0);
-                lg.addColorStop(0, colors[i % colors.length]);
-                lg.addColorStop(1, 'transparent');
-                ctx.fillStyle = lg;
-                ctx.beginPath();
-                ctx.moveTo(w/2, h);
-                ctx.lineTo(topX - w*0.06, 0);
-                ctx.lineTo(topX + w*0.06, 0);
-                ctx.closePath();
-                ctx.fill();
-                ctx.restore();
-            }
-            
-            ctx.fillStyle = '#000';
-            ctx.beginPath();
-            ctx.moveTo(0, h);
-            for (let cx = 0; cx <= w; cx += w*0.02) {
-                ctx.lineTo(cx, h - (h*0.08 + Math.sin(cx*0.008) * h*0.03));
-            }
-            ctx.lineTo(w, h);
-            ctx.fill();
-            
-            ctx.fillStyle = '#fff';
-            ctx.font = `bold ${Math.round(w*0.1)}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.shadowColor = '#ff00ff';
-            ctx.shadowBlur = 30;
-            ctx.fillText('LIVE', w/2, h*0.35);
-            ctx.shadowBlur = 0;
-        }
-        
-        function drawRetail(ctx, w, h) {
-            const rg = ctx.createLinearGradient(0, 0, w, h);
-            rg.addColorStop(0, '#e91e63');
-            rg.addColorStop(0.5, '#9c27b0');
-            rg.addColorStop(1, '#673ab7');
-            ctx.fillStyle = rg;
-            ctx.fillRect(0, 0, w, h);
-            
-            ctx.fillStyle = 'rgba(255,255,255,0.8)';
-            for (let sp = 0; sp < 40; sp++) {
-                const spx = (sp * 73) % w;
-                const spy = (sp * 97) % h;
-                ctx.beginPath();
-                ctx.arc(spx, spy, 3, 0, Math.PI*2);
-                ctx.fill();
-            }
-            
-            ctx.fillStyle = '#d32f2f';
-            ctx.beginPath();
-            ctx.moveTo(w*0.15, h*0.35);
-            ctx.lineTo(w*0.85, h*0.35);
-            ctx.lineTo(w*0.88, h*0.5);
-            ctx.lineTo(w*0.85, h*0.65);
-            ctx.lineTo(w*0.15, h*0.65);
-            ctx.lineTo(w*0.12, h*0.5);
-            ctx.closePath();
-            ctx.fill();
-            
-            ctx.fillStyle = '#fff';
-            ctx.font = `bold ${Math.round(w*0.12)}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('SALE', w/2, h*0.5);
-            ctx.textBaseline = 'alphabetic';
-            
-            ctx.font = `bold ${Math.round(w*0.04)}px Arial`;
-            ctx.fillText('UP TO 50% OFF', w/2, h*0.82);
-        }
-        
-        function drawCinema(ctx, w, h) {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, w, h);
-            
-            const letterboxH = h * 0.12;
-            const viewH = h - letterboxH * 2;
-            
-            const sky = ctx.createLinearGradient(0, letterboxH, 0, letterboxH + viewH * 0.6);
-            sky.addColorStop(0, '#1a1a3a');
-            sky.addColorStop(1, '#8a4a2a');
-            ctx.fillStyle = sky;
-            ctx.fillRect(0, letterboxH, w, viewH * 0.6);
-            
-            const sunGlow = ctx.createRadialGradient(w*0.7, letterboxH + viewH*0.3, 0, w*0.7, letterboxH + viewH*0.3, w*0.15);
-            sunGlow.addColorStop(0, 'rgba(255,200,100,1)');
-            sunGlow.addColorStop(0.4, 'rgba(255,150,50,0.5)');
-            sunGlow.addColorStop(1, 'transparent');
-            ctx.fillStyle = sunGlow;
-            ctx.fillRect(0, letterboxH, w, viewH);
-            
-            ctx.fillStyle = '#1a1a2a';
-            ctx.beginPath();
-            ctx.moveTo(0, letterboxH + viewH * 0.6);
-            ctx.lineTo(w*0.2, letterboxH + viewH * 0.4);
-            ctx.lineTo(w*0.4, letterboxH + viewH * 0.55);
-            ctx.lineTo(w*0.6, letterboxH + viewH * 0.35);
-            ctx.lineTo(w*0.8, letterboxH + viewH * 0.5);
-            ctx.lineTo(w, letterboxH + viewH * 0.45);
-            ctx.lineTo(w, letterboxH + viewH);
-            ctx.lineTo(0, letterboxH + viewH);
-            ctx.fill();
-            
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, w, letterboxH);
-            ctx.fillRect(0, h - letterboxH, w, letterboxH);
-        }
-        
-        function drawContent(ctx, w, h) {
-            ctx.clearRect(0, 0, w, h);
-            
-            switch(state.genre) {
-                case 'worship': drawWorship(ctx, w, h); break;
-                case 'corporate': drawCorporate(ctx, w, h); break;
-                case 'sports': drawSports(ctx, w, h); break;
-                case 'cinema': drawCinema(ctx, w, h); break;
-                case 'concert': drawConcert(ctx, w, h); break;
-                case 'retail': drawRetail(ctx, w, h); break;
-                default: drawNature(ctx, w, h);
-            }
-        }
-        
-        // ===================== PREVIEW =====================
-        function resizePreviewCanvas() {
-            const container = previewCanvas.parentElement;
-            const rect = container.getBoundingClientRect();
-            previewCanvas.width = rect.width * 2;
-            previewCanvas.height = rect.height * 2;
-        }
-        
-        function animatePreview() {
-            frameCount++;
-            drawContent(previewCtx, previewCanvas.width, previewCanvas.height);
-            requestAnimationFrame(animatePreview);
+            return hiddenCanvas;
         }
         
         // ===================== AR GENERATION =====================
@@ -661,28 +437,23 @@
             showStatus('Creating 3D model...', 'info');
             
             try {
-                // Create texture canvas
-                const textureSize = 2048;
-                const aspectRatio = state.height / state.width;
-                hiddenCanvas.width = textureSize;
-                hiddenCanvas.height = Math.round(textureSize * aspectRatio);
-                
-                drawContent(hiddenCtx, hiddenCanvas.width, hiddenCanvas.height);
+                // Generate texture
+                const textureCanvas = await generateTexture();
                 
                 // Create scene
                 const scene = new THREE.Scene();
                 
                 const widthM = state.width * FT_TO_M;
                 const heightM = state.height * FT_TO_M;
-                const depth = 0.08;
+                const depth = 0.08; // ~3 inch depth
                 
                 // Create texture from canvas
-                const texture = new THREE.CanvasTexture(hiddenCanvas);
+                const texture = new THREE.CanvasTexture(textureCanvas);
                 texture.colorSpace = THREE.SRGBColorSpace;
                 texture.flipY = true;
                 texture.needsUpdate = true;
                 
-                // Screen - use MeshBasicMaterial which works better with USDZ
+                // Screen
                 const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
                 const screenMat = new THREE.MeshBasicMaterial({ 
                     map: texture,
@@ -691,12 +462,12 @@
                 const screen = new THREE.Mesh(screenGeo, screenMat);
                 screen.position.z = depth / 2 + 0.003;
                 
-                // Frame
-                const frameGeo = new THREE.BoxGeometry(widthM + 0.06, heightM + 0.06, depth);
+                // Frame (black cabinet)
+                const frameGeo = new THREE.BoxGeometry(widthM + 0.05, heightM + 0.05, depth);
                 const frameMat = new THREE.MeshStandardMaterial({ 
-                    color: 0x1a1a1a, 
-                    roughness: 0.8, 
-                    metalness: 0.2 
+                    color: 0x111111, 
+                    roughness: 0.7, 
+                    metalness: 0.3 
                 });
                 const frame = new THREE.Mesh(frameGeo, frameMat);
                 
@@ -816,10 +587,7 @@
         document.getElementById('generateBtn').addEventListener('click', generateAndLaunchAR);
         
         // ===================== INIT =====================
-        resizePreviewCanvas();
-        window.addEventListener('resize', resizePreviewCanvas);
         updateUI();
-        animatePreview();
     </script>
 </body>
 </html>
