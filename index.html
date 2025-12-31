@@ -84,6 +84,8 @@
         
         .disclaimer { font-size: 10px; color: rgba(255,255,255,0.4); text-align: center; line-height: 1.5; padding: 15px; }
         
+        #hiddenCanvas { display: none; }
+        
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
@@ -113,7 +115,7 @@
         </button>
         
         <a id="arLink" rel="ar" href="#" style="display:none;">
-            <img id="arImage" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=">
+            <img id="arImage">
         </a>
         
         <div class="ar-note">Opens iOS AR viewer with real-world scale</div>
@@ -205,6 +207,8 @@
             Pricing is an estimate based on selected dimensions. Actual panel configurations and final pricing confirmed during consultation.
         </div>
     </div>
+    
+    <canvas id="hiddenCanvas"></canvas>
 
     <script type="module">
         import * as THREE from 'three';
@@ -251,49 +255,8 @@
         // ===================== ELEMENTS =====================
         const previewImage = document.getElementById('previewImage');
         const previewContainer = document.getElementById('previewContainer');
-        
-        // ===================== TEXTURE LOADER =====================
-        const textureLoader = new THREE.TextureLoader();
-        const loadedTextures = {};
-        
-        // Preload all textures using THREE.TextureLoader
-        function preloadTextures() {
-            Object.keys(IMAGE_PATHS).forEach(genre => {
-                textureLoader.load(
-                    IMAGE_PATHS[genre],
-                    (texture) => {
-                        texture.colorSpace = THREE.SRGBColorSpace;
-                        texture.flipY = false;
-                        loadedTextures[genre] = texture;
-                        console.log('Preloaded texture:', genre);
-                    },
-                    undefined,
-                    (err) => console.error('Failed to load texture:', genre, err)
-                );
-            });
-        }
-        preloadTextures();
-        
-        // Load texture with promise
-        function loadTexture(genre) {
-            return new Promise((resolve, reject) => {
-                if (loadedTextures[genre]) {
-                    resolve(loadedTextures[genre].clone());
-                    return;
-                }
-                textureLoader.load(
-                    IMAGE_PATHS[genre],
-                    (texture) => {
-                        texture.colorSpace = THREE.SRGBColorSpace;
-                        texture.flipY = false;
-                        loadedTextures[genre] = texture;
-                        resolve(texture.clone());
-                    },
-                    undefined,
-                    (err) => reject(err)
-                );
-            });
-        }
+        const hiddenCanvas = document.getElementById('hiddenCanvas');
+        const hiddenCtx = hiddenCanvas.getContext('2d');
         
         // ===================== HELPERS =====================
         function showStatus(message, type) {
@@ -303,6 +266,16 @@
             if (type === 'success') {
                 setTimeout(() => { status.className = 'status-message'; }, 3000);
             }
+        }
+        
+        function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error('Failed to load: ' + src));
+                img.src = src;
+            });
         }
         
         function snapToIncrement(value, increments) {
@@ -415,26 +388,82 @@
             updatePreviewSize();
         }
         
+        // ===================== TEXTURE CREATION =====================
+        async function createTextureFromImage(genre, wallAspect) {
+            // Step 1: Load the source image
+            const srcImg = await loadImage(IMAGE_PATHS[genre]);
+            console.log('Source image loaded:', srcImg.width, 'x', srcImg.height);
+            
+            // Step 2: Use power-of-2 dimensions for better compatibility
+            const canvasWidth = 2048;
+            const canvasHeight = 1024; // Fixed 2:1 for 16:9-ish
+            
+            hiddenCanvas.width = canvasWidth;
+            hiddenCanvas.height = canvasHeight;
+            
+            // Step 3: Fill with black background
+            hiddenCtx.fillStyle = '#000000';
+            hiddenCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+            
+            // Step 4: Calculate source crop to match wall aspect ratio
+            const imgAspect = srcImg.width / srcImg.height;
+            let sx, sy, sw, sh;
+            
+            if (imgAspect > wallAspect) {
+                sh = srcImg.height;
+                sw = srcImg.height * wallAspect;
+                sx = (srcImg.width - sw) / 2;
+                sy = 0;
+            } else {
+                sw = srcImg.width;
+                sh = srcImg.width / wallAspect;
+                sx = 0;
+                sy = (srcImg.height - sh) / 2;
+            }
+            
+            // Step 5: Draw image to canvas (cover the entire canvas)
+            hiddenCtx.drawImage(srcImg, sx, sy, sw, sh, 0, 0, canvasWidth, canvasHeight);
+            console.log('Canvas drawn');
+            
+            // Step 6: Convert canvas to data URL
+            const dataUrl = hiddenCanvas.toDataURL('image/png');
+            console.log('Data URL created, length:', dataUrl.length);
+            
+            // Step 7: Load the data URL as a new image
+            const textureImg = await loadImage(dataUrl);
+            console.log('Texture image loaded:', textureImg.width, 'x', textureImg.height);
+            
+            // Step 8: Create Three.js texture from the image
+            const texture = new THREE.Texture(textureImg);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.flipY = true;
+            texture.needsUpdate = true;
+            
+            return texture;
+        }
+        
         // ===================== AR GENERATION =====================
         async function generateAndLaunchAR() {
             const btn = document.getElementById('generateBtn');
             btn.disabled = true;
             btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" stroke-dasharray="30 60"/></svg> Generating...';
-            showStatus('Loading texture...', 'info');
+            showStatus('Loading image...', 'info');
             
             try {
-                // Load texture using THREE.TextureLoader - this is the key!
-                const texture = await loadTexture(state.genre);
+                // Create texture
+                const wallAspect = state.width / state.height;
+                const texture = await createTextureFromImage(state.genre, wallAspect);
                 
-                showStatus('Creating 3D model...', 'info');
+                showStatus('Building 3D model...', 'info');
                 
+                // Create scene
                 const scene = new THREE.Scene();
                 
                 const widthM = state.width * FT_TO_M;
                 const heightM = state.height * FT_TO_M;
                 const depth = 0.08;
                 
-                // Screen with loaded texture
+                // Screen mesh with texture
                 const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
                 const screenMat = new THREE.MeshBasicMaterial({ 
                     map: texture,
@@ -443,37 +472,50 @@
                 const screen = new THREE.Mesh(screenGeo, screenMat);
                 screen.position.z = depth / 2 + 0.003;
                 
-                // Frame
-                const frameGeo = new THREE.BoxGeometry(widthM + 0.05, heightM + 0.05, depth);
+                // Frame mesh
+                const frameGeo = new THREE.BoxGeometry(widthM + 0.06, heightM + 0.06, depth);
                 const frameMat = new THREE.MeshStandardMaterial({ 
-                    color: 0x111111, 
-                    roughness: 0.7, 
-                    metalness: 0.3 
+                    color: 0x1a1a1a, 
+                    roughness: 0.8, 
+                    metalness: 0.2 
                 });
                 const frame = new THREE.Mesh(frameGeo, frameMat);
                 
+                // Group and add to scene
                 const group = new THREE.Group();
                 group.add(frame);
                 group.add(screen);
                 scene.add(group);
                 
+                // Light
                 scene.add(new THREE.AmbientLight(0xffffff, 2));
                 
                 showStatus('Exporting to USDZ...', 'info');
                 
+                // Export to USDZ
                 const exporter = new USDZExporter();
                 const arrayBuffer = await exporter.parse(scene);
                 
+                console.log('USDZ exported, size:', arrayBuffer.byteLength);
+                
+                // Create blob and URL
                 const blob = new Blob([arrayBuffer], { type: 'model/vnd.usdz+zip' });
                 const url = URL.createObjectURL(blob);
                 
+                // Set up AR link
                 const arLink = document.getElementById('arLink');
                 arLink.href = url;
                 
+                // Set the AR image to the canvas content
+                const arImg = document.getElementById('arImage');
+                arImg.src = hiddenCanvas.toDataURL('image/jpeg', 0.8);
+                
                 showStatus('Opening AR viewer...', 'success');
                 
+                // Trigger AR view
                 setTimeout(() => arLink.click(), 100);
                 
+                // Reset button
                 setTimeout(() => {
                     btn.disabled = false;
                     btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg> View in Your Space';
