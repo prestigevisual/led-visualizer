@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>Prestige Visual System - AR LED Video Wall Visualizer</title>
+    
+    <!-- Import Map for Three.js modules -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.157.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.157.0/examples/jsm/"
+        }
+    }
+    </script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { width: 100%; height: 100%; overflow-x: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0a0a1a 0%, #0f1a2a 50%, #0a0a0f 100%); color: #fff; -webkit-user-select: none; user-select: none; }
@@ -16,38 +27,17 @@
         
         .preview-section { background: rgba(0,0,0,0.4); border-radius: 20px; padding: 20px; margin-bottom: 20px; border: 1px solid rgba(0,200,255,0.2); }
         .preview-container { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 15px; }
-        #previewCanvas { width: 100%; height: 100%; }
+        #previewCanvas { width: 100%; height: 100%; display: block; }
         .preview-label { text-align: center; font-size: 12px; color: rgba(255,255,255,0.5); }
         
-        /* AR Button - This is the actual clickable AR link */
-        #arLink {
-            display: flex;
-            width: 100%;
-            padding: 18px;
-            font-size: 18px;
-            font-weight: 700;
-            color: #000;
-            background: linear-gradient(135deg, #00ff88, #00d4ff);
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-bottom: 10px;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            text-decoration: none;
-        }
-        #arLink:active { transform: scale(0.98); }
-        #arLink svg { width: 24px; height: 24px; }
+        .ar-button { display: flex; width: 100%; padding: 18px; font-size: 18px; font-weight: 700; color: #000; background: linear-gradient(135deg, #00ff88, #00d4ff); border: none; border-radius: 50px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; align-items: center; justify-content: center; gap: 10px; text-decoration: none; }
+        .ar-button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .ar-button:active { transform: scale(0.98); }
+        .ar-button svg { width: 24px; height: 24px; }
         
         .ar-note { text-align: center; font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 20px; }
         
-        .generate-btn { width: 100%; padding: 18px; font-size: 18px; font-weight: 700; color: #000; background: linear-gradient(135deg, #00ff88, #00d4ff); border: none; border-radius: 50px; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
-        .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        
-        .status-message { text-align: center; padding: 10px; margin-bottom: 15px; border-radius: 10px; font-size: 13px; display: none; }
+        .status-message { text-align: center; padding: 12px; margin-bottom: 15px; border-radius: 10px; font-size: 13px; display: none; }
         .status-message.show { display: block; }
         .status-message.success { background: rgba(0,255,100,0.2); color: #00ff88; border: 1px solid rgba(0,255,100,0.3); }
         .status-message.error { background: rgba(255,50,50,0.2); color: #ff6666; border: 1px solid rgba(255,50,50,0.3); }
@@ -93,7 +83,7 @@
         
         .debug-panel { background: rgba(0,0,0,0.8); border: 1px solid #333; border-radius: 10px; padding: 15px; margin-bottom: 15px; font-family: monospace; font-size: 11px; }
         .debug-panel h4 { color: #00d4ff; margin-bottom: 10px; }
-        .debug-log { color: #aaa; max-height: 150px; overflow-y: auto; }
+        .debug-log { color: #aaa; max-height: 120px; overflow-y: auto; }
         .debug-log div { padding: 2px 0; border-bottom: 1px solid #222; }
         .debug-log .error { color: #ff6666; }
         .debug-log .success { color: #00ff88; }
@@ -115,21 +105,17 @@
         
         <div class="status-message" id="statusMessage"></div>
         
-        <!-- Step 1: Generate the model -->
-        <button class="generate-btn" id="generateBtn">
-            Step 1: Generate 3D Model
+        <button class="ar-button" id="generateBtn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg>
+            View in Your Space
         </button>
         
-        <!-- Step 2: AR Link (hidden until model is ready) -->
-        <a id="arLink" rel="ar" href="#" style="display: none;">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg>
-            Step 2: View in Your Space
-            <img id="arImage" src="" style="display:none;">
+        <a id="arLink" rel="ar" href="#" download="led-wall.usdz" style="display:none;">
+            <img id="arImage">
         </a>
         
-        <div class="ar-note" id="arNote">Generate a 3D model first, then tap to view in AR (iOS only)</div>
+        <div class="ar-note">Generates 3D model and opens iOS AR viewer</div>
         
-        <!-- Debug Panel -->
         <div class="debug-panel">
             <h4>Debug Log</h4>
             <div class="debug-log" id="debugLog"></div>
@@ -213,6 +199,9 @@
     <canvas id="hiddenCanvas"></canvas>
 
     <script type="module">
+        import * as THREE from 'three';
+        import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
+        
         // Debug logging
         function log(message, type = 'info') {
             const debugLog = document.getElementById('debugLog');
@@ -229,412 +218,407 @@
             status.className = `status-message show ${type}`;
         }
         
-        // Check for AR support
-        function checkARSupport() {
-            const a = document.createElement('a');
-            const supportsAR = a.relList && a.relList.supports && a.relList.supports('ar');
-            log(`AR Quick Look supported: ${supportsAR}`);
-            log(`User Agent: ${navigator.userAgent.substring(0, 50)}...`);
-            return supportsAR;
-        }
-        
-        // Initialize
         log('App initializing...');
-        const arSupported = checkARSupport();
+        log('Three.js loaded', 'success');
+        log('USDZExporter loaded', 'success');
+        
+        // Check AR support
+        const a = document.createElement('a');
+        const arSupported = a.relList && a.relList.supports && a.relList.supports('ar');
+        log(`AR Quick Look supported: ${arSupported}`);
         
         if (!arSupported) {
-            log('AR Quick Look not supported on this device', 'error');
-            showStatus('AR Quick Look requires iOS 12+ on iPhone/iPad. Use Safari browser.', 'error');
+            showStatus('AR requires iOS Safari. Please open in Safari on iPhone/iPad.', 'error');
         }
         
-        // Import Three.js
-        log('Loading Three.js...');
+        // ===================== CONFIG =====================
+        const GENRES = {
+            worship: { label: 'Worship', description: 'Churches & Houses of Worship' },
+            corporate: { label: 'Corporate', description: 'Lobbies & Boardrooms' },
+            sports: { label: 'Sports', description: 'Sports Bars & Watch Parties' },
+            cinema: { label: 'Cinema', description: 'Home Theater & Media Rooms' },
+            concert: { label: 'Concert', description: 'Live Events & Nightclubs' },
+            retail: { label: 'Retail', description: 'Stores & Commercial Signage' },
+            nature: { label: 'Nature', description: 'Ambient & Demo Content' }
+        };
         
-        import('https://unpkg.com/three@0.157.0/build/three.module.js').then(THREE => {
-            log('Three.js loaded successfully', 'success');
+        const WIDTH_INCREMENTS = [3.9, 5.9, 7.9, 9.8, 11.8, 13.8, 15.7, 17.7, 19.7, 21.7, 23.6, 25.6, 27.6, 29.5, 31.5, 33.5, 35.4, 37.4, 39.4];
+        const HEIGHT_INCREMENTS = [2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.9, 10.0, 11.1, 12.2, 13.3, 14.4, 15.5, 16.6, 17.7, 18.9, 20.0, 21.1];
+        
+        const PRICING = {
+            'P0.9':  { costPerSqft: 385, minViewingFt: 7,  label: 'Ultra-Premium' },
+            'P1.25': { costPerSqft: 212, minViewingFt: 10, label: 'Premium' },
+            'P1.9':  { costPerSqft: 185, minViewingFt: 15, label: 'Standard' },
+            'P2.6':  { costPerSqft: 140, minViewingFt: 21, label: 'Commercial' }
+        };
+        
+        const MARGIN_DIVISOR = 0.218;
+        const FT_TO_M = 0.3048;
+        
+        // ===================== STATE =====================
+        const state = {
+            shape: 'rectangle',
+            width: 13.8,
+            height: 7.7,
+            pixelPitch: 1.9,
+            genre: 'nature'
+        };
+        
+        // ===================== CANVAS =====================
+        const previewCanvas = document.getElementById('previewCanvas');
+        const previewCtx = previewCanvas.getContext('2d');
+        const hiddenCanvas = document.getElementById('hiddenCanvas');
+        const hiddenCtx = hiddenCanvas.getContext('2d');
+        
+        let frameCount = 0;
+        
+        // ===================== HELPERS =====================
+        function snapToIncrement(value, increments) {
+            return increments.reduce((prev, curr) => 
+                Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev
+            );
+        }
+        
+        function getIncrementIndex(value, increments) {
+            for (let i = 0; i < increments.length; i++) {
+                if (Math.abs(increments[i] - value) < 0.1) return i;
+            }
+            return 0;
+        }
+        
+        function findBestHeightForRatio(width, targetRatio) {
+            return snapToIncrement(width / targetRatio, HEIGHT_INCREMENTS);
+        }
+        
+        function getPitchKey(pitch) {
+            if (pitch === 0.9) return 'P0.9';
+            if (pitch === 1.25) return 'P1.25';
+            if (pitch === 1.9) return 'P1.9';
+            if (pitch === 2.6) return 'P2.6';
+            return 'P1.9';
+        }
+        
+        function getCostPerSqft(sqft, pitchKey) {
+            const baseCost = PRICING[pitchKey].costPerSqft;
+            if (sqft >= 175) return baseCost * 0.78;
+            if (sqft >= 120) return baseCost * 0.85;
+            if (sqft >= 80) return baseCost * 0.92;
+            return baseCost;
+        }
+        
+        function calculateDisplayPrice(width, height, pitch) {
+            const key = getPitchKey(pitch);
+            const sqft = width * height;
+            const cost = getCostPerSqft(sqft, key) * sqft;
+            return Math.floor((cost / MARGIN_DIVISOR) / 10000) * 10000;
+        }
+        
+        function formatPrice(price) {
+            return '$' + price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '+';
+        }
+        
+        function calcResolution(pitch) {
+            const wMM = state.width * 304.8;
+            const hMM = state.height * 304.8;
+            return { w: Math.round(wMM / pitch), h: Math.round(hMM / pitch) };
+        }
+        
+        // ===================== UI =====================
+        function updateUI() {
+            document.getElementById('widthValue').textContent = state.width + ' ft';
+            document.getElementById('heightValue').textContent = state.height + ' ft';
             
-            import('https://unpkg.com/three@0.157.0/examples/jsm/exporters/USDZExporter.js').then(({ USDZExporter }) => {
-                log('USDZExporter loaded successfully', 'success');
+            const price = calculateDisplayPrice(state.width, state.height, state.pixelPitch);
+            const key = getPitchKey(state.pixelPitch);
+            document.getElementById('priceDisplay').textContent = formatPrice(price);
+            document.getElementById('pitchLabel').textContent = key + ' ' + PRICING[key].label;
+            document.getElementById('viewingDistance').textContent = PRICING[key].minViewingFt + '+ feet';
+            
+            const res = calcResolution(state.pixelPitch);
+            const total = res.w * res.h;
+            const sqft = Math.round(state.width * state.height);
+            document.getElementById('resolutionSpec').textContent = res.w + ' x ' + res.h;
+            document.getElementById('pixelsSpec').textContent = total >= 1000000 ? (total / 1000000).toFixed(2) + 'M' : Math.round(total / 1000) + 'K';
+            document.getElementById('areaSpec').textContent = sqft + ' sq ft';
+            
+            document.getElementById('genreDescription').textContent = GENRES[state.genre].description;
+        }
+        
+        // ===================== DRAWING =====================
+        function drawNature(ctx, w, h, t) {
+            // Sky
+            const sky = ctx.createLinearGradient(0, 0, 0, h * 0.7);
+            sky.addColorStop(0, '#0a0a20');
+            sky.addColorStop(0.5, `hsl(${200 + Math.sin(t*0.01)*30},50%,15%)`);
+            sky.addColorStop(1, `hsl(${180 + Math.sin(t*0.008)*20},40%,20%)`);
+            ctx.fillStyle = sky;
+            ctx.fillRect(0, 0, w, h);
+            
+            // Aurora
+            for (let a = 0; a < 5; a++) {
+                ctx.save();
+                ctx.globalAlpha = 0.3 + Math.sin(t*0.03 + a) * 0.15;
+                const ag = ctx.createLinearGradient(0, h*0.1, 0, h*0.5);
+                ag.addColorStop(0, 'transparent');
+                ag.addColorStop(0.3, `hsl(${120 + a*20 + Math.sin(t*0.02)*30},80%,50%)`);
+                ag.addColorStop(0.7, `hsl(${180 + a*15 + Math.sin(t*0.025)*20},70%,40%)`);
+                ag.addColorStop(1, 'transparent');
+                ctx.fillStyle = ag;
+                ctx.beginPath();
+                ctx.moveTo(0, h*0.1);
+                for (let ax = 0; ax <= w; ax += 20) {
+                    const ay = h*0.25 + Math.sin(ax*0.008 + t*0.03 + a*0.5) * h*0.1;
+                    ctx.lineTo(ax, ay);
+                }
+                ctx.lineTo(w, h*0.5);
+                ctx.lineTo(0, h*0.5);
+                ctx.fill();
+                ctx.restore();
+            }
+            
+            // Stars
+            ctx.fillStyle = '#fff';
+            for (let st = 0; st < 80; st++) {
+                const stx = (st * 193.7) % w;
+                const sty = (st * 71.3) % (h * 0.5);
+                ctx.globalAlpha = 0.5 + Math.sin(t*0.15 + st) * 0.3;
+                ctx.beginPath();
+                ctx.arc(stx, sty, 1.5, 0, Math.PI*2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            
+            // Mountains
+            ctx.fillStyle = '#1a1a2e';
+            ctx.beginPath();
+            ctx.moveTo(0, h);
+            ctx.lineTo(0, h*0.7);
+            ctx.lineTo(w*0.15, h*0.5);
+            ctx.lineTo(w*0.3, h*0.65);
+            ctx.lineTo(w*0.5, h*0.4);
+            ctx.lineTo(w*0.7, h*0.6);
+            ctx.lineTo(w*0.85, h*0.45);
+            ctx.lineTo(w, h*0.55);
+            ctx.lineTo(w, h);
+            ctx.fill();
+            
+            // Snow caps
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.beginPath();
+            ctx.moveTo(w*0.5, h*0.4);
+            ctx.lineTo(w*0.45, h*0.48);
+            ctx.lineTo(w*0.55, h*0.48);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(w*0.85, h*0.45);
+            ctx.lineTo(w*0.8, h*0.52);
+            ctx.lineTo(w*0.9, h*0.52);
+            ctx.fill();
+            
+            // Lake
+            ctx.fillStyle = 'rgba(20,40,60,0.8)';
+            ctx.fillRect(0, h*0.85, w, h*0.15);
+        }
+        
+        function drawContent(ctx, w, h, t) {
+            drawNature(ctx, w, h, t);
+        }
+        
+        // ===================== PREVIEW =====================
+        function resizePreviewCanvas() {
+            const container = previewCanvas.parentElement;
+            const rect = container.getBoundingClientRect();
+            previewCanvas.width = rect.width * 2;
+            previewCanvas.height = rect.height * 2;
+        }
+        
+        function animatePreview() {
+            frameCount++;
+            drawContent(previewCtx, previewCanvas.width, previewCanvas.height, frameCount);
+            requestAnimationFrame(animatePreview);
+        }
+        
+        // ===================== AR GENERATION =====================
+        async function generateAndLaunchAR() {
+            log('Starting AR generation...');
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" style="animation: spin 1s linear infinite;"><path d="M12 2v4m0 12v4m-8-10H0m24 0h-4m-2.93-6.36l-2.83 2.83m-8.48 8.48l-2.83 2.83m0-14.14l2.83 2.83m8.48 8.48l2.83 2.83"/></svg> Generating...';
+            showStatus('Creating 3D model...', 'info');
+            
+            try {
+                // Create texture
+                log('Creating texture...');
+                const textureSize = 1024;
+                hiddenCanvas.width = textureSize;
+                hiddenCanvas.height = Math.round(textureSize * (state.height / state.width));
+                drawContent(hiddenCtx, hiddenCanvas.width, hiddenCanvas.height, frameCount);
                 
-                initApp(THREE, USDZExporter);
+                // Create scene
+                log('Building 3D scene...');
+                const scene = new THREE.Scene();
                 
-            }).catch(err => {
-                log(`Failed to load USDZExporter: ${err.message}`, 'error');
+                const widthM = state.width * FT_TO_M;
+                const heightM = state.height * FT_TO_M;
+                const depth = 0.1;
+                
+                // Texture
+                const texture = new THREE.CanvasTexture(hiddenCanvas);
+                texture.flipY = false;
+                texture.colorSpace = THREE.SRGBColorSpace;
+                
+                // Screen mesh
+                const screenGeo = new THREE.PlaneGeometry(widthM, heightM);
+                const screenMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.FrontSide });
+                const screen = new THREE.Mesh(screenGeo, screenMat);
+                screen.position.z = depth / 2 + 0.002;
+                
+                // Frame mesh
+                const frameGeo = new THREE.BoxGeometry(widthM + 0.08, heightM + 0.08, depth);
+                const frameMat = new THREE.MeshStandardMaterial({ 
+                    color: 0x111111, 
+                    roughness: 0.9, 
+                    metalness: 0.1 
+                });
+                const frame = new THREE.Mesh(frameGeo, frameMat);
+                
+                // Group
+                const group = new THREE.Group();
+                group.add(frame);
+                group.add(screen);
+                scene.add(group);
+                
+                // Light
+                scene.add(new THREE.AmbientLight(0xffffff, 1));
+                
+                // Export USDZ
+                log('Exporting USDZ...');
+                const exporter = new USDZExporter();
+                const arrayBuffer = await exporter.parse(scene);
+                log(`USDZ size: ${(arrayBuffer.byteLength / 1024).toFixed(1)} KB`, 'success');
+                
+                // Create blob and URL
+                const blob = new Blob([arrayBuffer], { type: 'model/vnd.usdz+zip' });
+                const url = URL.createObjectURL(blob);
+                
+                // Set up AR link
+                const arLink = document.getElementById('arLink');
+                arLink.href = url;
+                
+                // Create a tiny transparent image for the link
+                const img = document.getElementById('arImage');
+                img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+                
+                log('Launching AR Quick Look...', 'success');
+                showStatus('Opening AR viewer...', 'success');
+                
+                // Trigger the AR link
+                arLink.click();
+                
+                // Reset button
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg> View in Your Space';
+                    URL.revokeObjectURL(url);
+                }, 3000);
+                
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+                showStatus(`Error: ${error.message}`, 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4v6h2V6h4V4H3zm18 0h-6v2h4v4h2V4zm-2 14h-4v2h6v-6h-2v4zM5 18v-4H3v6h6v-2H5zm7-12L5.5 9.5 12 13l6.5-3.5L12 6zm0 8.5l-5.5-3v3L12 18l5.5-3.5v-3L12 14.5z"/></svg> View in Your Space';
+            }
+        }
+        
+        // ===================== EVENT HANDLERS =====================
+        document.querySelectorAll('[data-shape]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('[data-shape]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.shape = btn.dataset.shape;
+                
+                const widthSlider = document.getElementById('widthSlider');
+                const heightSlider = document.getElementById('heightSlider');
+                
+                if (state.shape === 'custom') {
+                    heightSlider.disabled = false;
+                } else {
+                    heightSlider.disabled = true;
+                    const widthIdx = parseInt(widthSlider.value);
+                    state.width = WIDTH_INCREMENTS[widthIdx];
+                    
+                    if (state.shape === 'rectangle') {
+                        state.height = findBestHeightForRatio(state.width, 16/9);
+                    } else if (state.shape === 'square') {
+                        state.height = snapToIncrement(state.width, HEIGHT_INCREMENTS);
+                    } else if (state.shape === 'ultrawide') {
+                        state.height = findBestHeightForRatio(state.width, 21/9);
+                    }
+                    heightSlider.value = getIncrementIndex(state.height, HEIGHT_INCREMENTS);
+                }
+                updateUI();
             });
-        }).catch(err => {
-            log(`Failed to load Three.js: ${err.message}`, 'error');
         });
         
-        function initApp(THREE, USDZExporter) {
-            log('Initializing app...');
+        document.querySelectorAll('[data-pitch]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('[data-pitch]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.pixelPitch = parseFloat(btn.dataset.pitch);
+                updateUI();
+            });
+        });
+        
+        document.querySelectorAll('[data-genre]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('[data-genre]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.genre = btn.dataset.genre;
+                updateUI();
+            });
+        });
+        
+        document.getElementById('widthSlider').addEventListener('input', (e) => {
+            const idx = parseInt(e.target.value);
+            state.width = WIDTH_INCREMENTS[idx];
             
-            // ===================== GENRE DATA =====================
-            const GENRES = {
-                worship: { label: 'Worship', description: 'Churches & Houses of Worship' },
-                corporate: { label: 'Corporate', description: 'Lobbies & Boardrooms' },
-                sports: { label: 'Sports', description: 'Sports Bars & Watch Parties' },
-                cinema: { label: 'Cinema', description: 'Home Theater & Media Rooms' },
-                concert: { label: 'Concert', description: 'Live Events & Nightclubs' },
-                retail: { label: 'Retail', description: 'Stores & Commercial Signage' },
-                nature: { label: 'Nature', description: 'Ambient & Demo Content' }
-            };
-            
-            // ===================== PANEL DIMENSIONS =====================
-            const WIDTH_INCREMENTS = [3.9, 5.9, 7.9, 9.8, 11.8, 13.8, 15.7, 17.7, 19.7, 21.7, 23.6, 25.6, 27.6, 29.5, 31.5, 33.5, 35.4, 37.4, 39.4];
-            const HEIGHT_INCREMENTS = [2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.9, 10.0, 11.1, 12.2, 13.3, 14.4, 15.5, 16.6, 17.7, 18.9, 20.0, 21.1];
-            
-            // ===================== PRICING DATA =====================
-            const PRICING = {
-                'P0.9':  { costPerSqft: 385, minViewingFt: 7,  label: 'Ultra-Premium' },
-                'P1.25': { costPerSqft: 212, minViewingFt: 10, label: 'Premium' },
-                'P1.9':  { costPerSqft: 185, minViewingFt: 15, label: 'Standard' },
-                'P2.6':  { costPerSqft: 140, minViewingFt: 21, label: 'Commercial' }
-            };
-            
-            const MARGIN_DIVISOR = 0.218;
-            const FT_TO_M = 0.3048;
-            
-            // ===================== STATE =====================
-            const state = {
-                shape: 'rectangle',
-                width: 13.8,
-                height: 7.7,
-                pixelPitch: 1.9,
-                genre: 'nature'
-            };
-            
-            // ===================== CANVAS SETUP =====================
-            const previewCanvas = document.getElementById('previewCanvas');
-            const previewCtx = previewCanvas.getContext('2d');
-            const hiddenCanvas = document.getElementById('hiddenCanvas');
-            const hiddenCtx = hiddenCanvas.getContext('2d');
-            
-            let frameCount = 0;
-            
-            // ===================== HELPER FUNCTIONS =====================
-            function snapToIncrement(value, increments) {
-                return increments.reduce((prev, curr) => 
-                    Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev
-                );
-            }
-            
-            function getIncrementIndex(value, increments) {
-                for (let i = 0; i < increments.length; i++) {
-                    if (Math.abs(increments[i] - value) < 0.1) return i;
+            if (state.shape !== 'custom') {
+                const heightSlider = document.getElementById('heightSlider');
+                if (state.shape === 'rectangle') {
+                    state.height = findBestHeightForRatio(state.width, 16/9);
+                } else if (state.shape === 'square') {
+                    state.height = snapToIncrement(state.width, HEIGHT_INCREMENTS);
+                } else if (state.shape === 'ultrawide') {
+                    state.height = findBestHeightForRatio(state.width, 21/9);
                 }
-                return 0;
+                heightSlider.value = getIncrementIndex(state.height, HEIGHT_INCREMENTS);
             }
-            
-            function findBestHeightForRatio(width, targetRatio) {
-                return snapToIncrement(width / targetRatio, HEIGHT_INCREMENTS);
-            }
-            
-            function getPitchKey(pitch) {
-                if (pitch === 0.9) return 'P0.9';
-                if (pitch === 1.25) return 'P1.25';
-                if (pitch === 1.9) return 'P1.9';
-                if (pitch === 2.6) return 'P2.6';
-                return 'P1.9';
-            }
-            
-            function getCostPerSqft(sqft, pitchKey) {
-                const baseCost = PRICING[pitchKey].costPerSqft;
-                if (sqft >= 175) return baseCost * 0.78;
-                if (sqft >= 120) return baseCost * 0.85;
-                if (sqft >= 80) return baseCost * 0.92;
-                return baseCost;
-            }
-            
-            function calculateDisplayPrice(width, height, pitch) {
-                const key = getPitchKey(pitch);
-                const sqft = width * height;
-                const cost = getCostPerSqft(sqft, key) * sqft;
-                return Math.floor((cost / MARGIN_DIVISOR) / 10000) * 10000;
-            }
-            
-            function formatPrice(price) {
-                return '$' + price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '+';
-            }
-            
-            function calcResolution(pitch) {
-                const wMM = state.width * 304.8;
-                const hMM = state.height * 304.8;
-                return { w: Math.round(wMM / pitch), h: Math.round(hMM / pitch) };
-            }
-            
-            // ===================== UI UPDATES =====================
-            function updateUI() {
-                document.getElementById('widthValue').textContent = state.width + ' ft';
-                document.getElementById('heightValue').textContent = state.height + ' ft';
-                
-                const price = calculateDisplayPrice(state.width, state.height, state.pixelPitch);
-                const key = getPitchKey(state.pixelPitch);
-                document.getElementById('priceDisplay').textContent = formatPrice(price);
-                document.getElementById('pitchLabel').textContent = key + ' ' + PRICING[key].label;
-                document.getElementById('viewingDistance').textContent = PRICING[key].minViewingFt + '+ feet';
-                
-                const res = calcResolution(state.pixelPitch);
-                const total = res.w * res.h;
-                const sqft = Math.round(state.width * state.height);
-                document.getElementById('resolutionSpec').textContent = res.w + ' x ' + res.h;
-                document.getElementById('pixelsSpec').textContent = total >= 1000000 ? (total / 1000000).toFixed(2) + 'M' : Math.round(total / 1000) + 'K';
-                document.getElementById('areaSpec').textContent = sqft + ' sq ft';
-                
-                document.getElementById('genreDescription').textContent = GENRES[state.genre].description;
-                
-                // Hide AR link when settings change (need to regenerate)
-                document.getElementById('arLink').style.display = 'none';
-                document.getElementById('generateBtn').style.display = 'block';
-            }
-            
-            // ===================== DRAWING FUNCTIONS =====================
-            function drawNature(ctx, w, h, t) {
-                const sky = ctx.createLinearGradient(0, 0, 0, h * 0.7);
-                sky.addColorStop(0, '#0a0a20');
-                sky.addColorStop(0.5, `hsl(${200 + Math.sin(t*0.01)*30},50%,15%)`);
-                sky.addColorStop(1, `hsl(${180 + Math.sin(t*0.008)*20},40%,20%)`);
-                ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
-                
-                for (let a = 0; a < 5; a++) {
-                    ctx.save();
-                    ctx.globalAlpha = 0.3 + Math.sin(t*0.03 + a) * 0.15;
-                    const ag = ctx.createLinearGradient(0, h*0.1, 0, h*0.5);
-                    ag.addColorStop(0, 'transparent');
-                    ag.addColorStop(0.3, `hsl(${120 + a*20 + Math.sin(t*0.02)*30},80%,50%)`);
-                    ag.addColorStop(0.7, `hsl(${180 + a*15 + Math.sin(t*0.025)*20},70%,40%)`);
-                    ag.addColorStop(1, 'transparent');
-                    ctx.fillStyle = ag;
-                    ctx.beginPath(); ctx.moveTo(0, h*0.1);
-                    for (let ax = 0; ax <= w; ax += 20) {
-                        const ay = h*0.25 + Math.sin(ax*0.008 + t*0.03 + a*0.5) * h*0.1;
-                        ctx.lineTo(ax, ay);
-                    }
-                    ctx.lineTo(w, h*0.5); ctx.lineTo(0, h*0.5); ctx.fill();
-                    ctx.restore();
-                }
-                
-                ctx.fillStyle = '#fff';
-                for (let st = 0; st < 100; st++) {
-                    const stx = (st * 193.7) % w, sty = (st * 71.3) % (h * 0.5);
-                    ctx.globalAlpha = 0.5 + Math.sin(t*0.15 + st) * 0.3;
-                    ctx.beginPath(); ctx.arc(stx, sty, 1, 0, Math.PI*2); ctx.fill();
-                }
-                ctx.globalAlpha = 1;
-                
-                ctx.fillStyle = '#1a1a2e';
-                ctx.beginPath(); ctx.moveTo(0, h);
-                ctx.lineTo(0, h*0.7); ctx.lineTo(w*0.15, h*0.5); ctx.lineTo(w*0.3, h*0.65);
-                ctx.lineTo(w*0.5, h*0.4); ctx.lineTo(w*0.7, h*0.6); ctx.lineTo(w*0.85, h*0.45);
-                ctx.lineTo(w, h*0.55); ctx.lineTo(w, h); ctx.fill();
-                
-                ctx.fillStyle = 'rgba(255,255,255,0.3)';
-                ctx.beginPath(); ctx.moveTo(w*0.5, h*0.4); ctx.lineTo(w*0.45, h*0.48); ctx.lineTo(w*0.55, h*0.48); ctx.fill();
-                
-                ctx.fillStyle = 'rgba(20,40,60,0.8)';
-                ctx.fillRect(0, h*0.85, w, h*0.15);
-            }
-            
-            function drawContent(ctx, w, h, t) {
-                // Simplified - just use nature for now
-                drawNature(ctx, w, h, t);
-            }
-            
-            // ===================== PREVIEW ANIMATION =====================
-            function resizePreviewCanvas() {
-                const container = previewCanvas.parentElement;
-                const rect = container.getBoundingClientRect();
-                previewCanvas.width = rect.width * 2;
-                previewCanvas.height = rect.height * 2;
-            }
-            
-            function animatePreview() {
-                frameCount++;
-                drawContent(previewCtx, previewCanvas.width, previewCanvas.height, frameCount);
-                requestAnimationFrame(animatePreview);
-            }
-            
-            // ===================== AR MODEL GENERATION =====================
-            async function generateARModel() {
-                log('Starting AR model generation...');
-                const generateBtn = document.getElementById('generateBtn');
-                generateBtn.disabled = true;
-                generateBtn.textContent = 'Generating...';
-                
-                try {
-                    // Generate texture
-                    log('Creating texture...');
-                    const textureSize = 1024;
-                    hiddenCanvas.width = textureSize;
-                    hiddenCanvas.height = Math.round(textureSize * (state.height / state.width));
-                    drawContent(hiddenCtx, hiddenCanvas.width, hiddenCanvas.height, frameCount);
-                    log(`Texture created: ${hiddenCanvas.width}x${hiddenCanvas.height}`);
-                    
-                    // Create Three.js scene
-                    log('Building 3D scene...');
-                    const scene = new THREE.Scene();
-                    
-                    const widthM = state.width * FT_TO_M;
-                    const heightM = state.height * FT_TO_M;
-                    const depth = 0.1;
-                    
-                    log(`Model dimensions: ${widthM.toFixed(2)}m x ${heightM.toFixed(2)}m`);
-                    
-                    // Create texture
-                    const texture = new THREE.CanvasTexture(hiddenCanvas);
-                    texture.flipY = false;
-                    texture.colorSpace = THREE.SRGBColorSpace;
-                    
-                    // Screen
-                    const screenGeometry = new THREE.PlaneGeometry(widthM, heightM);
-                    const screenMaterial = new THREE.MeshBasicMaterial({ map: texture, side: THREE.FrontSide });
-                    const screen = new THREE.Mesh(screenGeometry, screenMaterial);
-                    screen.position.z = depth / 2 + 0.001;
-                    
-                    // Frame
-                    const frameGeometry = new THREE.BoxGeometry(widthM + 0.05, heightM + 0.05, depth);
-                    const frameMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8, metalness: 0.2 });
-                    const frame = new THREE.Mesh(frameGeometry, frameMaterial);
-                    
-                    // Group
-                    const group = new THREE.Group();
-                    group.add(frame);
-                    group.add(screen);
-                    scene.add(group);
-                    
-                    // Light
-                    const ambientLight = new THREE.AmbientLight(0xffffff, 1);
-                    scene.add(ambientLight);
-                    
-                    // Export
-                    log('Exporting to USDZ...');
-                    const exporter = new USDZExporter();
-                    const arrayBuffer = await exporter.parse(scene);
-                    log(`USDZ generated: ${(arrayBuffer.byteLength / 1024).toFixed(1)} KB`);
-                    
-                    const blob = new Blob([arrayBuffer], { type: 'model/vnd.usdz+zip' });
-                    const url = URL.createObjectURL(blob);
-                    log(`Blob URL created: ${url.substring(0, 50)}...`);
-                    
-                    // Setup AR link
-                    const arLink = document.getElementById('arLink');
-                    arLink.href = url;
-                    arLink.style.display = 'flex';
-                    generateBtn.style.display = 'none';
-                    
-                    showStatus('Model ready! Tap "View in Your Space" to launch AR.', 'success');
-                    log('AR model ready!', 'success');
-                    
-                    document.getElementById('arNote').textContent = 'Tap the button above to view in AR (iOS Safari only)';
-                    
-                } catch (error) {
-                    log(`Error: ${error.message}`, 'error');
-                    showStatus(`Error: ${error.message}`, 'error');
-                    generateBtn.disabled = false;
-                    generateBtn.textContent = 'Step 1: Generate 3D Model';
-                }
-            }
-            
-            // ===================== EVENT HANDLERS =====================
-            function setupEventHandlers() {
-                // Shape buttons
-                document.querySelectorAll('[data-shape]').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        document.querySelectorAll('[data-shape]').forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-                        state.shape = btn.dataset.shape;
-                        
-                        const widthSlider = document.getElementById('widthSlider');
-                        const heightSlider = document.getElementById('heightSlider');
-                        
-                        if (state.shape === 'custom') {
-                            heightSlider.disabled = false;
-                        } else {
-                            heightSlider.disabled = true;
-                            const widthIdx = parseInt(widthSlider.value);
-                            state.width = WIDTH_INCREMENTS[widthIdx];
-                            
-                            if (state.shape === 'rectangle') {
-                                state.height = findBestHeightForRatio(state.width, 16/9);
-                            } else if (state.shape === 'square') {
-                                state.height = snapToIncrement(state.width, HEIGHT_INCREMENTS);
-                            } else if (state.shape === 'ultrawide') {
-                                state.height = findBestHeightForRatio(state.width, 21/9);
-                            }
-                            heightSlider.value = getIncrementIndex(state.height, HEIGHT_INCREMENTS);
-                        }
-                        updateUI();
-                    });
-                });
-                
-                // Pitch buttons
-                document.querySelectorAll('[data-pitch]').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        document.querySelectorAll('[data-pitch]').forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-                        state.pixelPitch = parseFloat(btn.dataset.pitch);
-                        updateUI();
-                    });
-                });
-                
-                // Genre buttons
-                document.querySelectorAll('[data-genre]').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        document.querySelectorAll('[data-genre]').forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-                        state.genre = btn.dataset.genre;
-                        updateUI();
-                    });
-                });
-                
-                // Sliders
-                document.getElementById('widthSlider').addEventListener('input', (e) => {
-                    const idx = parseInt(e.target.value);
-                    state.width = WIDTH_INCREMENTS[idx];
-                    
-                    if (state.shape !== 'custom') {
-                        const heightSlider = document.getElementById('heightSlider');
-                        if (state.shape === 'rectangle') {
-                            state.height = findBestHeightForRatio(state.width, 16/9);
-                        } else if (state.shape === 'square') {
-                            state.height = snapToIncrement(state.width, HEIGHT_INCREMENTS);
-                        } else if (state.shape === 'ultrawide') {
-                            state.height = findBestHeightForRatio(state.width, 21/9);
-                        }
-                        heightSlider.value = getIncrementIndex(state.height, HEIGHT_INCREMENTS);
-                    }
-                    updateUI();
-                });
-                
-                document.getElementById('heightSlider').addEventListener('input', (e) => {
-                    if (state.shape === 'custom') {
-                        state.height = HEIGHT_INCREMENTS[parseInt(e.target.value)];
-                        updateUI();
-                    }
-                });
-                
-                // Generate button
-                document.getElementById('generateBtn').addEventListener('click', generateARModel);
-                
-                // AR Link click logging
-                document.getElementById('arLink').addEventListener('click', (e) => {
-                    log('AR Link clicked!');
-                    if (!arSupported) {
-                        e.preventDefault();
-                        showStatus('AR Quick Look is only supported on iOS devices with Safari browser.', 'error');
-                        log('AR not supported - click prevented', 'error');
-                    }
-                });
-                
-                window.addEventListener('resize', resizePreviewCanvas);
-            }
-            
-            // ===================== INIT =====================
-            resizePreviewCanvas();
-            setupEventHandlers();
             updateUI();
-            animatePreview();
-            log('App ready!', 'success');
-        }
+        });
+        
+        document.getElementById('heightSlider').addEventListener('input', (e) => {
+            if (state.shape === 'custom') {
+                state.height = HEIGHT_INCREMENTS[parseInt(e.target.value)];
+                updateUI();
+            }
+        });
+        
+        document.getElementById('generateBtn').addEventListener('click', generateAndLaunchAR);
+        
+        // ===================== INIT =====================
+        resizePreviewCanvas();
+        window.addEventListener('resize', resizePreviewCanvas);
+        updateUI();
+        animatePreview();
+        log('App ready!', 'success');
     </script>
+    
+    <style>
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </body>
 </html>
