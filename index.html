@@ -392,10 +392,11 @@
             var zip = new JSZip();
             zip.file('model.usda', usdaContent);
             zip.file('texture.png', textureBytes);
-            var blob = await zip.generateAsync({type: 'blob', compression: 'STORE'});
+            var arrayBuffer = await zip.generateAsync({type: 'arraybuffer', compression: 'STORE'});
+            var blob = new Blob([arrayBuffer], {type: 'model/vnd.usdz+zip'});
             if (currentUsdzUrl) URL.revokeObjectURL(currentUsdzUrl);
             currentUsdzUrl = URL.createObjectURL(blob);
-            return currentUsdzUrl;
+            return currentUsdzUrl + '#.usdz';
         }
         
         async function updateUI() {
